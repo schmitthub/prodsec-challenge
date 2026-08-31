@@ -1,0 +1,1 @@
+- setup syft/cosign and github attestations to save time

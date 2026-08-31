@@ -1,0 +1,56 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+  hooks:
+  -   id: check-yaml
+  -   id: end-of-file-fixer
+  -   id: trailing-whitespace
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: 1f1e8bf348ff38fc88619a38d3ca4d9c56abea49  # frozen: v0.16.5
+  hooks:
+    # Run the linter.
+    - id: ruff-check
+      types_or: [ python, pyi, jupyter, pyproject ]
+      args: [ --fix ]
+    # Run the formatter.
+    - id: ruff-format
+      types_or: [ python, pyi, jupyter, markdown ]
+
+- repo: https://github.com/gitleaks/gitleaks
+  rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1
+  hooks:
+    - id: gitleaks
+      args: [--baseline-path, gitleaks-report.json]
+
+- repo: local
+  hooks:
+  - id: bandit
+    name: bandit (security scan)
+    entry: uv run bandit
+    language: system
+    types: [python]
+    args: ["-r", "app/", "-c", "pyproject.toml"]
+
+  - id: semgrep
+    name: Semgrep SAST
+    # Expected version: 1.156.0 (must match CI image tag in security.yml)
+    entry: semgrep scan --config p/python --config p/security-audit --config .semgrep/ --config=p/owasp-top-ten --error
+    language: system
+    types: [python]
+    pass_filenames: false
+
+  - id: semgrep-actions
+    name: Semgrep GitHub Actions
+    entry: semgrep scan --config p/github-actions --config .semgrep/ --error
+    language: system
+    files: ^\.github/workflows/.*\.ya?ml$
+    pass_filenames: false
+
+  - id: osv
+    name: OSV Scanner
+    entry: osv-scanner scan source .
+    language: system
+    types: [python]
+    pass_filenames: false
