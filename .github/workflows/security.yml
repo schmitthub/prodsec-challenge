@@ -45,6 +45,10 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     container:
       # Pin for reproducibility. When bumping: update this tag AND the
       # semgrep/pre-commit rev in .pre-commit-config.yaml.
@@ -122,6 +126,10 @@ jobs:
   gitleaks:
     name: Gitleaks secrets
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -178,6 +186,10 @@ jobs:
     name: Dependency review
     if: ${{ inputs.run_dependency_review }}
     runs-on: ubuntu-24.04
+    # pull-requests: write only here, for the on-failure summary comment.
+    permissions:
+      contents: read
+      pull-requests: write
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -186,3 +198,4 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          comment-summary-in-pr: on-failure
