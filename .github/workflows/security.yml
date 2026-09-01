@@ -1,5 +1,22 @@
 name: security
 
+# Reusable security checks, called by pr.yml (PRs) and main.yml (pushes to main).
+#
+# Gating policy (the part a busy product team has to live with):
+#   - Semgrep: on PRs only findings *introduced by the PR* count (--baseline-commit),
+#     and only ERROR severity fails the job. Everything (all severities, full
+#     history on main) is uploaded to Code scanning as SARIF so WARNING/INFO show
+#     up as annotations and alerts without blocking merges.
+#   - Gitleaks: any new secret fails; accepted historical findings live in the
+#     committed baseline (gitleaks-report.json), custom rules in .gitleaks.toml.
+#   - Container image: built here, never pushed. Fails only on Critical CVEs
+#     that already have a fix (only-fixed) — the actionable subset.
+#   - OSV (lockfile/requirements): report-only → Code scanning. New vulnerable
+#     dependencies added by a PR are blocked by dependency-review instead.
+#   - dependency-review (PRs): fails on new dependencies with High+ advisories.
+#
+# Tool versions here must match the pre-commit hook revs in .pre-commit-config.yaml.
+
 on:
   workflow_call:
     inputs:
@@ -8,6 +25,8 @@ on:
         type: boolean
         default: false
 
+# Reusable workflows take their permissions from the calling job; this block
+# documents the superset the jobs below need.
 permissions:
   contents: read
   pull-requests: read
@@ -15,45 +34,46 @@ permissions:
   actions: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
-      - run: python -m unittest discover -s tests
-
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-24.04
     container:
-      # Pin version for reproducibility. Update periodically:
-      #   1. Check latest: https://hub.docker.com/r/semgrep/semgrep/tags
-      #   2. Update tag here AND expected version in .pre-commit-config.yaml
+      # Pin for reproducibility. When bumping: update this tag AND the
+      # semgrep/pre-commit rev in .pre-commit-config.yaml.
+      #   https://hub.docker.com/r/semgrep/semgrep/tags
       image: semgrep/semgrep:1.156.0@sha256:a3d49dc967b8534a6a76628e50c51cbfe33eb7195dc2feab1fdc0f100852c8ef
     timeout-minutes: 10
-    # Dependabot PRs have limited token permissions and only change
-    # go.mod/go.sum — SAST scanning is not useful on dependency changes
-    if: (github.actor != 'dependabot[bot]')
+    # Dependabot PRs only touch lockfiles; SAST adds nothing and its token is limited.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      # PRs: incremental scan (only new findings since base branch)
-      # Push to main: full scan (no baseline)
-      - name: Semgrep
+      - name: Semgrep scan
+        # PRs: --baseline-commit limits findings to what the PR introduced.
+        # main: full scan (no baseline). Both write SARIF (for Code scanning)
+        # and JSON (for the severity gate) in one run; the run itself never fails.
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          BASELINE=""
           if [ -n "$BASE_SHA" ]; then
             echo "Incremental scan against base $BASE_SHA"
-            semgrep scan --sarif --output semgrep.sarif --baseline-commit "$BASE_SHA" --config p/golang --config p/security-audit --config p/github-actions --config .semgrep/ --error
+            BASELINE="--baseline-commit $BASE_SHA"
           else
             echo "Full scan (no baseline)"
-            semgrep scan --sarif --output semgrep.sarif --config p/golang --config p/security-audit --config p/github-actions --config .semgrep/ --error
           fi
+          # shellcheck disable=SC2086
+          semgrep scan $BASELINE \
+            --config p/python \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --config p/github-actions \
+            --config .semgrep/ \
+            --metrics=off --disable-version-check \
+            --sarif-output semgrep.sarif \
+            --json-output semgrep.json
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
@@ -64,17 +84,43 @@ jobs:
           sarif_file: semgrep.sarif
           category: semgrep
 
+      - name: Severity gate (ERROR blocks, WARNING/INFO annotate)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          results = json.load(open("semgrep.json"))["results"]
+          # Semgrep uses ERROR/WARNING/INFO for code rules and CRITICAL/HIGH/MEDIUM/LOW
+          # for newer rule packs; block on the top tier of each scale only.
+          blocking = {"ERROR", "CRITICAL", "HIGH"}
+          level = {"ERROR": "error", "CRITICAL": "error", "HIGH": "error",
+                   "WARNING": "warning", "MEDIUM": "warning",
+                   "INFO": "notice", "LOW": "notice"}
+          for r in results:
+              sev = r["extra"]["severity"]
+              msg = r["extra"]["message"].strip().splitlines()[0]
+              print(f'::{level.get(sev, "notice")} file={r["path"]},line={r["start"]["line"]},title={r["check_id"]}::{msg}')
+          errors = [r for r in results if r["extra"]["severity"] in blocking]
+          print(f"{len(results)} new finding(s); {len(errors)} blocking ({'/'.join(sorted(blocking))})")
+          if errors:
+              print("::error::High-severity Semgrep findings introduced by this PR block merge. "
+                    "Lower severities are advisory (see Code scanning). Justify a true false "
+                    "positive with an inline `# nosemgrep: <rule-id>` comment.")
+              sys.exit(1)
+          PY
+
   gitleaks:
-    name: Gitleaks Secrets
+    name: Gitleaks secrets
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      # Use raw CLI instead of gitleaks-action for --baseline-path support.
-      # The gitleaks-action (v2) does not expose --baseline-path as an input.
+      # Raw CLI instead of gitleaks-action: the action does not expose
+      # --baseline-path. Version must match the gitleaks rev in .pre-commit-config.yaml.
       - name: Install gitleaks
         run: |
           set -euo pipefail
@@ -90,8 +136,13 @@ jobs:
           rm -f "${ARCHIVE}" "${CHECKSUMS}"
           gitleaks version
 
-      - name: Gitleaks
-        run: gitleaks git --baseline-path gitleaks-report.json --report-format sarif --report-path results.sarif
+      - name: Gitleaks (full history, baseline-aware)
+        run: >-
+          gitleaks git .
+          --config .gitleaks.toml
+          --baseline-path gitleaks-report.json
+          --redact
+          --report-format sarif --report-path results.sarif
 
       - name: Upload Gitleaks SARIF
         if: always() && hashFiles('results.sarif') != ''
@@ -100,12 +151,59 @@ jobs:
           sarif_file: results.sarif
           category: gitleaks
 
+  container:
+    name: Container image scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image (local only, never pushed)
+        run: docker build -t records-api:ci .
+
+      - name: Grype vulnerability scan
+        id: grype
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: records-api:ci
+          output-format: sarif
+          fail-build: true
+          severity-cutoff: critical
+          only-fixed: true
+
+      - name: Upload Grype SARIF
+        if: always() && steps.grype.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+          category: container
+
+  osv:
+    name: OSV dependency scan
+    # Official reusable workflow: scans uv.lock + requirements.txt, uploads SARIF.
+    # Report-only here; dependency-review gates *new* vulnerable deps on PRs.
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    with:
+      scan-args: |-
+        --recursive
+        ./
+      fail-on-vuln: false
+
   dependency-review:
-    name: Dependency Review
+    name: Dependency review
     if: ${{ inputs.run_dependency_review }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: 'Checkout Repository'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: 'Dependency Review'
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high

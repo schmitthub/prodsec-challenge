@@ -12,20 +12,18 @@ Status tracker: `challenge/notes.md`. Deliverables still empty: `challenge/repor
 
 ## Commands
 
-Two dependency surfaces exist and must stay in sync: `requirements.txt` (what README/CI/Dockerfile install) and `pyproject.toml` + `uv.lock` (runtime pins + `dev` group tooling). Python 3.11.
+Two dependency surfaces exist and must stay in sync: `requirements.txt` (what README/CI/Dockerfile install) and `pyproject.toml` + `uv.lock` (runtime pins; `dev` group is ruff only). Security scanners are deliberately **not** uv deps — they run from pinned `rev`s in `.pre-commit-config.yaml` (prek-managed envs) so tool requirements can't constrain runtime pins. Python 3.11.
 
 ```bash
-uv sync                                        # runtime + dev group (ruff, bandit, semgrep, osv-scanner, prek)
+uv sync                                        # runtime + dev group (ruff only; scanners live in pre-commit)
 uv run python -m unittest discover -s tests    # full suite (what CI runs)
 uv run python -m unittest tests.test_records.RecordsApiTests.test_health_check   # single test
 uv run uvicorn app.main:app --reload           # API on :8000, docs at /docs
 docker build -t records-api . && docker run --rm -p 8000:8000 records-api
 
 uv run ruff check --fix . && uv run ruff format .
-uv run bandit -r app/ -c pyproject.toml
-uv run semgrep scan --config p/python --config p/security-audit --config .semgrep/ --config p/owasp-top-ten --error
-uv run osv-scanner scan source .
-prek run --all-files                           # runs every hook in .pre-commit-config.yaml (prek = pre-commit runner)
+prek run --all-files                           # ruff, gitleaks, bandit, semgrep (python + actions), osv-scanner — each from its pinned rev in prek's cache
+prek run semgrep --all-files                   # one hook by id
 ```
 
 Test accounts: `alice@example.test`/`alice-password`, `bob@example.test`/`bob-password` (members), `clinician@example.test`/`clinician-password` (staff). Login `POST /api/login` → bearer token.
@@ -44,22 +42,19 @@ Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`,
 
 ## CI / release layout (`.github/workflows/`)
 
-- `pr.yml` (pull_request → main) and `main.yml` (push main) are thin callers of two reusable workflows: `security.yml` (semgrep SARIF → code scanning, gitleaks with `--baseline-path gitleaks-report.json`, dependency-review on PRs only) and `test.yml`. Permissions are declared per calling job — reusable workflows do not inherit workflow-level blocks.
-- `release.yml` (push tag `v*`): `validate` (semver regex, tag must be ancestor of `origin/main`) → `build.yml` (reusable, `workflow_call`). Attestation identity is anchored to `build.yml`'s path — verify with `gh attestation verify <artifact> --owner schmitthub --signer-workflow schmitthub/prodsec-challenge/.github/workflows/build.yml`. `build` job needs `contents: write`, `id-token: write`, `attestations: write`, `artifact-metadata: write` (actions/attest@v4).
-- `.semgrep/actions.yaml` — custom rule: `pull_request_target` + cache-capable action (cache-poisoning). Runs in both CI and the `semgrep-actions` pre-commit hook. The BAC/IDOR custom rule for the app is still to be written here.
-- Semgrep version is pinned in two places that must match: the image digest in `security.yml` and the comment in `.pre-commit-config.yaml`.
+- `pr.yml` (pull_request → main) and `main.yml` (push main) are thin callers of two reusable workflows; permissions are declared per calling job — reusable workflows do not inherit workflow-level blocks.
+- `test.yml`: `setup-uv` + `uv sync --frozen`, ruff check/format, unit tests, and a drift check that every pin in `requirements.txt` exists identically in `uv.lock`.
+- `security.yml` jobs and their gates:
+  - `semgrep` — one run writes SARIF (→ Code scanning, all severities) and JSON; on PRs `--baseline-commit` limits findings to the PR's, and only `ERROR|HIGH|CRITICAL` fail (inline python gate). Main: upload only.
+  - `gitleaks` — full history, `.gitleaks.toml` (adds `lab-vendor-api-key` rule) + baseline `gitleaks-report.json`; regenerate the baseline with `gitleaks git . --report-path gitleaks-report.json`, don't use `.gitleaksignore` for it.
+  - `container` — `docker build` (never pushed) + grype (`anchore/scan-action`), fails on Critical with a fix available; SARIF category `container`.
+  - `osv` — official reusable workflow, report-only. `dependency-review` (PRs) fails on new High+ deps.
+- `release.yml` (push tag `v*`): `validate` (semver regex, tag must be ancestor of `origin/main`) → `build.yml` (reusable): `docker build` → `docker save` archive → syft SPDX+CycloneDX SBOMs → `SHA256SUMS` → `cosign sign-blob` bundles → `attest-build-provenance` + `attest-sbom` → self-verify (`gh attestation verify`, `cosign verify-blob`) → `gh release create`. No registry. Signing identity is anchored to `build.yml`'s path: `gh attestation verify <artifact> --owner schmitthub --signer-workflow schmitthub/prodsec-challenge/.github/workflows/build.yml`. `build` job needs `contents: write`, `id-token: write`, `attestations: write`, `artifact-metadata: write`.
+- `.semgrep/actions.yaml` — custom rule: `pull_request_target` + cache-capable action (cache-poisoning). Runs in CI and the actions pre-commit hook. The BAC/IDOR custom rule for the app is still to be written here.
+- Tool versions pinned in two places that must match: `security.yml` (semgrep image tag, `GITLEAKS_VERSION`) and the `rev` of the corresponding hook in `.pre-commit-config.yaml`. Dependabot does not bump hook `rev`s — use `prek auto-update` when bumping CI.
 - Actions are SHA-pinned with `# vX.Y.Z` comments; dependabot groups actions/pip/docker weekly.
 - GitHub rulesets (immutable tags, trunk-based) are configured server-side, not in repo.
-
-### Scaffolding copied from the clawker (Go) repo — not yet adapted
-
-Treat these as known-wrong until fixed; don't "preserve" them:
-
-- `security.yml` uses `--config p/golang` (should be `p/python` / `p/owasp-top-ten` like the pre-commit hook) and carries a duplicate `test` job already covered by `test.yml`.
-- `build.yml` installs cosign + syft but has no build, SBOM, or sign steps, and attests `release-subjects/*` which nothing creates. Intended end state: build artifact(s) → `syft` SBOM → `cosign` keyless sign (Sigstore OIDC) → `actions/attest` provenance + SBOM attestation.
-- `release.yml` comments mention goreleaser; `.syft.yaml` is clawker's (go-module cataloger, `source.name: clawker`); `.gitleaksignore` references Go test paths; `.semgrepignore` comments mention Go; `.claude/settings.local.json` references a nonexistent `.claude/hooks/go-commands.sh`.
-- `.claude/docs/*.md` are clawker's architecture docs — irrelevant here, ignore.
-- `gitleaks-report.json` baseline referenced by CI and pre-commit does not exist yet.
+- `prek run --all-files` also runs ruff `--fix`/format and whitespace fixers over the seeded `app/`, `tests/`, `helpers/`, `README.md` and rewrites them — revert those (`git checkout -- app tests helpers README.md`) unless a formatting commit is intended.
 
 ## Agent environment
 

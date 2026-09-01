@@ -14,11 +14,11 @@ Senior ProdSec take-home. `app/` = deliberately vulnerable FastAPI "records API"
 - `app/routes/{login,records,search,webhooks}.py`; `app/models.py` `User`, `TokenResponse`
 - `tests/test_records.py` unittest + TestClient, happy paths only
 - `src/prodsec_challenge/` uv scaffold stub, not the service
-- `.github/workflows/`, `.semgrep/`, `.pre-commit-config.yaml` — see `mem:ci/core` for pipeline layout, reusable-workflow permission rules, and clawker-copied scaffolding that is known-wrong
+- `.github/workflows/`, `.semgrep/`, `.pre-commit-config.yaml` — see `mem:ci/core` for pipeline layout, gating policy, release signing/attestation flow, and reusable-workflow permission rules
 
 ## Further memories
 - `mem:tech_stack` — pins, Python version, tooling
 - `mem:suggested_commands` — dev/test/scan commands
 - `mem:conventions` — code + CI style rules
 - `mem:task_completion` — what to run before declaring done
-- `mem:env/container` — clawker firewall + uv interpreter quirks (read when `uv sync`, Serena LS, or network fails)
+- `mem:env/container` — dev-container egress firewall + uv interpreter quirks (read when `uv sync`, Serena LS, or network fails)

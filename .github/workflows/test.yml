@@ -1,16 +1,49 @@
 name: Test
 
+# Reusable: lint + unit tests + dependency-surface consistency. Called by
+# pr.yml and main.yml; permissions come from the calling job (contents: read).
+
 on:
   workflow_call:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Lint and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python 3.11
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: "3.11"
-      - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
-      - run: python -m unittest discover -s tests
+          enable-cache: true
+
+      - name: Sync from lockfile
+        run: uv sync --frozen
+
+      - name: Ruff (lint + format check)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: requirements.txt is a subset of uv.lock
+        # README, Dockerfile and the release image install from requirements.txt;
+        # pyproject.toml + uv.lock is the source of truth. Every pin in
+        # requirements.txt must resolve to the identical pin in the lockfile.
+        run: |
+          uv export --no-dev --no-hashes --no-emit-project --no-header --format requirements.txt \
+            | sed 's/ *;.*//' | tr 'A-Z' 'a-z' | sort -u > /tmp/lock-pins.txt
+          sed '/^[[:space:]]*$/d;/^#/d' requirements.txt | tr 'A-Z' 'a-z' | sort -u > /tmp/req-pins.txt
+          DRIFT="$(comm -23 /tmp/req-pins.txt /tmp/lock-pins.txt)"
+          if [ -n "$DRIFT" ]; then
+            echo "::error file=requirements.txt::pins not present in uv.lock (update pyproject.toml + 'uv lock', or requirements.txt):"
+            echo "$DRIFT"
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: uv run python -m unittest discover -s tests -v

@@ -7,8 +7,9 @@ on:
 
 # Per-job permissions only — reusable workflows inherit from the calling job,
 # not from a workflow-level block. The `validate` job needs read-only contents
-# for fetch; the `build` job declares the full superset that the reusable's
-# steps require (goreleaser release write, Sigstore OIDC, attestation API).
+# for fetch; the `build` job declares the full superset that build.yml's steps
+# require (GitHub Release upload, Sigstore OIDC for cosign + attestations,
+# attestation API).
 
 jobs:
   validate:
@@ -42,7 +43,7 @@ jobs:
     name: Build
     needs: validate
     permissions:
-      contents: write          # goreleaser publishes the GitHub release
+      contents: write          # `gh release create` uploads the artifacts
       id-token: write          # Sigstore OIDC token for attestation signing
       attestations: write      # GitHub attestation API write
       artifact-metadata: write # new in actions/attest@v4 — required even though listed only in the README Usage section, not the inline Examples block
