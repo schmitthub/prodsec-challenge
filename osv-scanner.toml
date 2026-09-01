@@ -1,0 +1,139 @@
+# osv-scanner baseline. Auto-discovered next to uv.lock by the prek hook and by
+# scripts/sarif-scan.sh; excluded from the image via .dockerignore so CI's image scan
+# is not affected. Every entry expires: when ignoreUntil passes the vuln blocks again.
+# Known vulns in the seeded pins are catalogued in challenge/report.md.
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2132"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: click==8.1.8 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-175"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-176"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-177"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-178"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-179"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-993g-76c3-p5m4"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-fhv5-28vv-h8m8"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-jq35-7prp-9v3f"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-w7vc-732c-9m39"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-xgmm-8j9v-c9wx"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: pyjwt==2.12.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-1872"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: requests==2.31.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-1873"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: requests==2.31.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2275"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: requests==2.31.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-9hjg-9r4m-mvj7"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: requests==2.31.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-9wx4-h78v-vm56"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: requests==2.31.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-gc5v-m9x4-r6x2"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: requests==2.31.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-161"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2280"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2281"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-248"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-249"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-82w8-qh3p-5jfq"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-86qp-5c8j-p5mr"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-jp82-jpqv-5vv3"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-wqp7-x3pw-xc5r"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"
+
+[[IgnoredVulns]]
+id = "GHSA-x746-7m8f-x49c"
+ignoreUntil = 2026-11-30
+reason = "baseline 2026-09-01: starlette==0.50.0 seeded pin, see challenge/report.md"

@@ -53,6 +53,7 @@ repos:
       types: [text]
       exclude: ^\.github/workflows/
       args:
+        - --config=p/default
         - --config=p/python
         - --config=p/security-audit
         - --config=p/owasp-top-ten

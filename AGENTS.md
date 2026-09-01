@@ -24,6 +24,7 @@ docker build -t records-api . && docker run --rm -p 8000:8000 records-api
 uv run ruff check --fix . && uv run ruff format .
 prek run --all-files                           # ruff, gitleaks, bandit, semgrep (python + actions), osv-scanner, unit tests — scanners from their pinned rev in prek's cache; severity gates match CI (bandit HIGH; semgrep via the shared gate script)
 prek run semgrep --all-files                   # one hook by id (semgrep-actions for the workflows hook)
+scripts/sarif-scan.sh                         # full-tree SARIF for every scanner into .sarif/ (gitignored; VS Code SARIF Viewer auto-loads it) — all severities, baselines/gates not applied
 ```
 
 Test accounts: `alice@example.test`/`alice-password`, `bob@example.test`/`bob-password` (members), `clinician@example.test`/`clinician-password` (staff). Login `POST /api/login` → bearer token.

@@ -31,7 +31,8 @@
   - Added 2 branch rulesets for all and main
   - Add 1 tag ruleset for releases
   - Enabled immutable tags
-  - Enabled advanced setup for github security for more granular control over the workflow and configuration 
+  - Enabled advanced setup for github security for more granular control over the workflow and configuration
+  - Enabled all dependabot settings 
 - For workflow example purposes setup the repo for trunk based dev
 - added uv for uv.lock so that syft sboms can resolve transient deps and make proper graph 
 - sec tools
@@ -41,7 +42,11 @@
   - gitleaks
   - codeql 
 - CVSS_FAIL_THRESHOLD var created 
- 
+
+### Triage
+
+- generated baselines and sarif gen script for local triage 
+
 ### AI 
 
 - added serena support for LSP semantic retrieval capabillity 

@@ -105,7 +105,6 @@ build:
     - locales-all
     - sqlite3
 security:
-  docker_socket: true
   firewall:
     add_domains:
       - pypi.org

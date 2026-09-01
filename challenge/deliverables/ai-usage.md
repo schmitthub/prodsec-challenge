@@ -1,0 +1,3 @@
+- setup syft/cosign and github attestations to save time
+- semgrep modern severity gate script 
+- generated baselines and sarif reports script

@@ -81,6 +81,7 @@ jobs:
           fi
           # shellcheck disable=SC2086
           semgrep scan $BASELINE \
+            --config p/default \
             --config p/python \
             --config p/security-audit \
             --config p/owasp-top-ten \

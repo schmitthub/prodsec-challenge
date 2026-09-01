@@ -3,3 +3,21 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# dev tooling — never part of the runtime image (and keeps scanner config/reports
+# out of the image CI's osv-scanner gate inspects)
+.github/
+.claude/
+.codex/
+.serena/
+.semgrep/
+.semgrepignore
+.pre-commit-config.yaml
+.gitleaks.toml
+gitleaks-report.json
+osv-scanner.toml
+.sarif/
+*.sarif
+challenge/
+tests/
+scripts/

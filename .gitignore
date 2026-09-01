@@ -229,3 +229,9 @@ __marimo__/
 
 # claude settings 
 .claude/settings.local.json
+
+# clawker
+.clawker.local.yaml
+
+# local scanner output (scripts/sarif-scan.sh) — SARIF embeds code snippets
+.sarif/
