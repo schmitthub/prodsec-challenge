@@ -17,7 +17,7 @@ exit (bad config, crash) is passed through.
 
 import json
 import os
-import subprocess
+import subprocess  # nosec B404 - runs semgrep as an argv list, never a shell
 import sys
 import tempfile
 
@@ -46,7 +46,7 @@ def run_semgrep(args: list[str]) -> str:
         "--disable-version-check",
         *args,
     ]
-    rc = subprocess.run(cmd, check=False).returncode
+    rc = subprocess.run(cmd, check=False).returncode  # nosec B603 - fixed argv, no shell
     if (
         rc != 0
     ):  # without --error semgrep exits 0 on findings, so this is a real failure
