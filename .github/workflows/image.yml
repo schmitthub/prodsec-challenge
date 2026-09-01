@@ -49,15 +49,11 @@ on:
         description: "release only: file name of the gzipped docker-archive inside that artifact"
         value: ${{ jobs.sign.outputs.archive }}
 
-# Reusable workflows take their permissions from the calling job; this block
-# documents the superset the jobs below need (sign's are release-only).
-permissions:
-  contents: read
-  security-events: write
-  actions: read
-  id-token: write
-  attestations: write
-  artifact-metadata: write
+# Reusable workflows take their permissions from the calling job and may only
+# narrow them, so nothing is requested at workflow level here. Callers grant:
+#   security.yml (PR/main): contents: read, security-events: write, actions: read
+#   release.yml (tags):     the above + id-token: write, attestations: write,
+#                           artifact-metadata: write (for the sign job)
 
 env:
   NAME: records-api
@@ -172,11 +168,10 @@ jobs:
     needs: [build, scan]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: read           # gh attestation verify
-      id-token: write          # Sigstore OIDC token for cosign + attestation signing
-      attestations: write      # GitHub attestation API write
-      artifact-metadata: write # actions/attest@v4
+    # No job-level permissions: a called workflow cannot request more than its
+    # caller grants, and PR/main callers do not grant the signing scopes. This
+    # job inherits release.yml's grant (contents: read, id-token: write,
+    # attestations: write, artifact-metadata: write); it never runs elsewhere.
     outputs:
       artifact: ${{ steps.meta.outputs.artifact }}
       archive: ${{ steps.meta.outputs.archive }}
