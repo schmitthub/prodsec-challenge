@@ -4,9 +4,11 @@ name: security
 #
 # Gating policy (the part a busy product team has to live with):
 #   - Semgrep: on PRs only findings *introduced by the PR* count (--baseline-commit),
-#     and only ERROR severity fails the job. Everything (all severities, full
-#     history on main) is uploaded to Code scanning as SARIF so WARNING/INFO show
-#     up as annotations and alerts without blocking merges.
+#     and only top-severity findings fail the job: ERROR on Semgrep's classic
+#     ERROR/WARNING/INFO scale, or HIGH/CRITICAL on the CRITICAL/HIGH/MEDIUM/LOW
+#     scale rules may use since 1.72. Everything (all severities, full history
+#     on main) is uploaded to Code scanning as SARIF so WARNING/MEDIUM and
+#     INFO/LOW show up as annotations and alerts without blocking merges.
 #   - Gitleaks: any new secret fails; accepted historical findings live in the
 #     committed baseline (gitleaks-report.json), custom rules in .gitleaks.toml.
 #   - Container image (image.yml): built once per commit into a docker-archive
@@ -89,14 +91,16 @@ jobs:
           sarif_file: semgrep.sarif
           category: semgrep
 
-      - name: Severity gate (ERROR blocks, WARNING/INFO annotate)
+      - name: Severity gate (ERROR/HIGH/CRITICAL block, lower severities annotate)
         if: github.event_name == 'pull_request'
         run: |
           python3 - <<'PY'
           import json, sys
           results = json.load(open("semgrep.json"))["results"]
-          # Semgrep uses ERROR/WARNING/INFO for code rules and CRITICAL/HIGH/MEDIUM/LOW
-          # for newer rule packs; block on the top tier of each scale only.
+          # Rules carry either the classic ERROR/WARNING/INFO severity or (since
+          # semgrep 1.72) CRITICAL/HIGH/MEDIUM/LOW. ERROR is the classic "high"
+          # tier, so block on ERROR plus HIGH and CRITICAL; the `level` map below
+          # mirrors that same grouping for the workflow annotations.
           blocking = {"ERROR", "CRITICAL", "HIGH"}
           level = {"ERROR": "error", "CRITICAL": "error", "HIGH": "error",
                    "WARNING": "warning", "MEDIUM": "warning",
@@ -141,6 +145,9 @@ jobs:
           rm -f "${ARCHIVE}" "${CHECKSUMS}"
           gitleaks version
 
+      # --redact is load-bearing: the committed baseline is stored redacted, and
+      # gitleaks only skips the Match/Secret comparison against it when redact > 0.
+      # Dropping the flag would un-suppress every baselined finding.
       - name: Gitleaks (full history, baseline-aware)
         run: >-
           gitleaks git .
