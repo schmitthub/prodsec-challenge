@@ -144,11 +144,12 @@ jobs:
         if: github.event_name == 'pull_request'
         # bandit -b compares against a JSON report of the base commit. Filenames
         # must match, so the base is scanned from inside its own tree with -r .
+        # The config always comes from the PR head: the base may predate it.
         run: |
           BASE_DIR="$RUNNER_TEMP/bandit-base"
           mkdir -p "$BASE_DIR"
           git archive "$BASE_SHA" | tar -x -C "$BASE_DIR"
-          (cd "$BASE_DIR" && bandit -c pyproject.toml -r . -f json -o "$RUNNER_TEMP/bandit-base.json" --exit-zero -q)
+          (cd "$BASE_DIR" && bandit -c "$GITHUB_WORKSPACE/pyproject.toml" -r . -f json -o "$RUNNER_TEMP/bandit-base.json" --exit-zero -q)
           bandit -c pyproject.toml -r . -b "$RUNNER_TEMP/bandit-base.json" --severity-level high
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
