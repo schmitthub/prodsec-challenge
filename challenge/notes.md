@@ -52,3 +52,5 @@
 ## Sec nots
 
 - requirements.txt doesn't not have a lockfile meaning trans deps and actual will vary between environemnts and make supply chain security checks unreliable and reproducibility difficult. Fix: go with a manager like uv which i've done and committed the uv.lock file as part of the CI implementation. consider retiring requirements.txt once uv is fully adopted.
+- needed to adjust gitleaks settings to detect secret in dev.py due to low entropy 
+- 
