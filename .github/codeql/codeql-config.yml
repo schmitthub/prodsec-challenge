@@ -17,7 +17,6 @@ queries:
 
 paths-ignore:
   - tests
-  - src           # uv scaffold stub, not the service
   - challenge     # exercise documents
   - .venv
   - .serena

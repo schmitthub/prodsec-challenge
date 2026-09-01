@@ -13,7 +13,7 @@ Senior ProdSec take-home. `app/` = deliberately vulnerable FastAPI "records API"
 - `app/db.py` in-memory `USERS`/`RECORDS` dicts; `search_records` = throwaway sqlite per call
 - `app/routes/{login,records,search,webhooks}.py`; `app/models.py` `User`, `TokenResponse`
 - `tests/test_records.py` unittest + TestClient, happy paths only
-- `src/prodsec_challenge/` uv scaffold stub, not the service
+- no `src/`, no `[build-system]` (uv virtual project: deps only); the service is `app/` run from source
 - `.github/workflows/`, `.semgrep/`, `.pre-commit-config.yaml` — see `mem:ci/core` for pipeline layout, gating policy, release signing/attestation flow, and reusable-workflow permission rules
 
 ## Further memories
