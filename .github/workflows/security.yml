@@ -17,9 +17,10 @@ name: security
 #     score >= the CVSS_FAIL_THRESHOLD repository variable (Settings → Secrets
 #     and variables → Actions; default 9.0). release.yml runs the same workflow
 #     with `release: true`, which adds the sign job after the scan.
-#   - OSV (uv.lock, the resolved dependency set): report-only → Code scanning.
-#     New vulnerable dependencies added by a PR are blocked by dependency-review.
-#   - dependency-review (PRs): fails on new dependencies with High+ advisories.
+#   - dependency-review (PRs): diffs the dependency graph against the base and
+#     fails on added/changed dependencies with High+ advisories. Known vulns in
+#     pins already on main surface through the image scan and Dependabot alerts,
+#     so there is no separate lockfile scan job.
 #
 # Tool versions here (and in .github/actions/osv-image-scan) must match the
 # pre-commit hook revs in .pre-commit-config.yaml.
@@ -172,21 +173,6 @@ jobs:
       contents: read
       security-events: write
       actions: read
-
-  osv:
-    name: OSV dependency scan
-    # Official reusable workflow, pointed at uv.lock (resolved, transitive); uploads SARIF.
-    # Report-only here; dependency-review gates *new* vulnerable deps on PRs.
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
-    permissions:
-      security-events: write
-      contents: read
-      actions: read
-    with:
-      scan-args: |-
-        -L
-        uv.lock
-      fail-on-vuln: false
 
   dependency-review:
     name: Dependency review

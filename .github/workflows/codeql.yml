@@ -6,7 +6,7 @@ name: CodeQL
 # custom queries -- see codeql-config.yml and custom-queries/ for how a query
 # gets wired in.
 #
-# Complements, not replaces, the Semgrep/OSV/gitleaks jobs in security.yml:
+# Complements, not replaces, the Semgrep/gitleaks/image-scan jobs in security.yml:
 # CodeQL is GitHub-hosted (Advanced Security); the rest run anywhere.
 
 on:

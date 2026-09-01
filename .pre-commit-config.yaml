@@ -71,8 +71,9 @@ repos:
     - id: osv-scanner
       # uv.lock is the resolved dependency set (transitives included); SCA
       # reads it, and only when it changes (upstream hook is always_run).
-      # Known vulns in existing pins are tracked by the report-only OSV job in
-      # CI; new or changed pins are gated here and by dependency-review on the PR.
+      # Known vulns in existing pins surface via the container image scan and
+      # Dependabot alerts; new or changed pins are gated here and by
+      # dependency-review on the PR.
       always_run: false
       files: ^uv\.lock$
       args: ["scan", "source", "-L", "uv.lock"]
