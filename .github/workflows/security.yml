@@ -12,7 +12,7 @@ name: security
 #   - Container image: built and pushed to a registry that exists only for the
 #     job, scanned by digest. Fails only on Critical CVEs that already have a
 #     fix (only-fixed) — the actionable subset.
-#   - OSV (requirements.txt, the canonical manifest): report-only → Code scanning.
+#   - OSV (uv.lock, the resolved dependency set): report-only → Code scanning.
 #     New vulnerable dependencies added by a PR are blocked by dependency-review.
 #   - dependency-review (PRs): fails on new dependencies with High+ advisories.
 #
@@ -225,7 +225,7 @@ jobs:
 
   osv:
     name: OSV dependency scan
-    # Official reusable workflow, pointed at requirements.txt only; uploads SARIF.
+    # Official reusable workflow, pointed at uv.lock (resolved, transitive); uploads SARIF.
     # Report-only here; dependency-review gates *new* vulnerable deps on PRs.
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
     permissions:
@@ -235,7 +235,7 @@ jobs:
     with:
       scan-args: |-
         -L
-        requirements.txt
+        uv.lock
       fail-on-vuln: false
 
   dependency-review:
