@@ -40,7 +40,8 @@
   - osv scanner
   - gitleaks
   - codeql 
-
+- CVSS_FAIL_THRESHOLD var created 
+ 
 ### AI 
 
 - added serena support for LSP semantic retrieval capabillity 
