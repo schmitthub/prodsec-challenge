@@ -1,17 +1,15 @@
+# syft config for the records-api release SBOM (used by .github/workflows/build.yml).
+# Image SBOMs are generated from the docker-archive produced by `docker save`;
+# default catalogers cover Debian dpkg + Python (pip/dist-info) packages.
 exclude:
-  - "./test/adversarial/**"
+  - "./.venv/**"
   - "./dist/**"
-  - "./bin/**"
-  - "./.clawkerlocal/**"
-
-default-catalogers:
-  - "go-module-file-cataloger"
-  - "file"
+  - "./.serena/**"
+  - "./.claude/**"
 
 file:
   metadata:
     selection: "owned-by-package"
 
 source:
-  name: "clawker"
-  version: ""
+  name: "records-api"

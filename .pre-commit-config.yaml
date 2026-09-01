@@ -1,3 +1,8 @@
+# Optional local convenience so CI failures aren't a surprise. Runner: prek
+# (`uv tool install prek`; `prek run --all-files`). Every security tool below is
+# installed into prek's own cached env from its pinned `rev` — none of them are
+# project (uv) dependencies, so scanner requirements can never constrain the
+# app's runtime pins. Keep each `rev` aligned with the version CI uses.
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
@@ -7,50 +12,63 @@ repos:
   -   id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
   rev: 1f1e8bf348ff38fc88619a38d3ca4d9c56abea49  # frozen: v0.16.5
   hooks:
-    # Run the linter.
     - id: ruff-check
       types_or: [ python, pyi, jupyter, pyproject ]
       args: [ --fix ]
-    # Run the formatter.
     - id: ruff-format
       types_or: [ python, pyi, jupyter, markdown ]
 
 - repo: https://github.com/gitleaks/gitleaks
-  rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1
+  rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1 (matches GITLEAKS_VERSION in security.yml)
   hooks:
     - id: gitleaks
       args: [--baseline-path, gitleaks-report.json]
 
-- repo: local
+- repo: https://github.com/PyCQA/bandit
+  rev: 92ae8b82fb422a639f0ed8d99e96cea769594e08  # frozen: 1.9.4
   hooks:
-  - id: bandit
-    name: bandit (security scan)
-    entry: uv run bandit
-    language: system
-    types: [python]
-    args: ["-r", "app/", "-c", "pyproject.toml"]
+    - id: bandit
+      additional_dependencies: ["bandit[toml]"]   # reads [tool.bandit] from pyproject.toml
+      args: ["-c", "pyproject.toml"]              # staged .py files on commit; whole tree with --all-files
 
-  - id: semgrep
-    name: Semgrep SAST
-    # Expected version: 1.156.0 (must match CI image tag in security.yml)
-    entry: semgrep scan --config p/python --config p/security-audit --config .semgrep/ --config=p/owasp-top-ten --error
-    language: system
-    types: [python]
-    pass_filenames: false
+- repo: https://github.com/semgrep/pre-commit
+  rev: 33d4462c25147807aaa122d613a04d9fbd5f4840  # frozen: v1.156.0 (must match semgrep/semgrep image tag in security.yml)
+  hooks:
+    - id: semgrep
+      name: Semgrep SAST
+      args:
+        - scan
+        - --disable-version-check
+        - --quiet
+        - --config=p/python
+        - --config=p/security-audit
+        - --config=p/owasp-top-ten
+        - --config=.semgrep/
+        - --skip-unknown-extensions
+        - --error
+      # Scans the staged files on commit (pre-existing findings in untouched
+      # files don't block unrelated commits); `prek run --all-files` = full scan.
+    - id: semgrep
+      name: Semgrep GitHub Actions
+      files: ^\.github/workflows/.*\.ya?ml$
+      args:
+        - scan
+        - --disable-version-check
+        - --quiet
+        - --config=p/github-actions
+        - --config=.semgrep/
+        - --skip-unknown-extensions
+        - --error
 
-  - id: semgrep-actions
-    name: Semgrep GitHub Actions
-    entry: semgrep scan --config p/github-actions --config .semgrep/ --error
-    language: system
-    files: ^\.github/workflows/.*\.ya?ml$
-    pass_filenames: false
-
-  - id: osv
-    name: OSV Scanner
-    entry: osv-scanner scan source .
-    language: system
-    types: [python]
-    pass_filenames: false
+- repo: https://github.com/google/osv-scanner
+  rev: c84fa4568f2526d0333e9a914ea8a0a5f74ad68b  # frozen: v2.5.1
+  hooks:
+    - id: osv-scanner
+      # Only when dependency files change (upstream hook is always_run). Known
+      # vulns in *existing* pins are tracked by the report-only OSV job in CI;
+      # new/changed deps are gated here and by dependency-review on the PR.
+      always_run: false
+      files: ^(uv\.lock|requirements\.txt|pyproject\.toml|Dockerfile)$
+      args: ["scan", "source", "--recursive", "--verbosity=error", "."]

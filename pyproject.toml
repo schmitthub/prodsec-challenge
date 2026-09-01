@@ -24,11 +24,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "bandit>=1.9.4",
-    "osv-scanner>=0.0.1",
-    "prek>=0.5.0",
     "ruff>=0.16.5",
-    "semgrep>=1.139.0",
 ]
 
 [tool.bandit]

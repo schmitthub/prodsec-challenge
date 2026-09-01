@@ -26,6 +26,7 @@ build:
   stacks:
     - python
     - node
+    - go        # Go toolchain for prek's golang-language hooks (gitleaks, osv-scanner)
   instructions:
     root_run:
       - |-
@@ -115,6 +116,8 @@ security:
       - mcp.context7.com
       - context7.com
       - semgrep.dev
+      - api.osv.dev      # osv-scanner vuln queries (pre-commit hook)
+      - api.deps.dev     # osv-scanner transitive resolution for requirements.txt
     rules:
       - dst: github.com
         proto: ssh
@@ -137,6 +140,12 @@ security:
             path: /pre-commit/pre-commit-hooks/
           - action: allow
             path: /astral-sh/ruff-pre-commit/
+          - action: allow
+            path: /PyCQA/bandit/
+          - action: allow
+            path: /semgrep/pre-commit/
+          - action: allow
+            path: /google/osv-scanner/
           - action: allow
             path: /astral-sh/python-build-standalone/releases/download/
             methods: [GET, HEAD]

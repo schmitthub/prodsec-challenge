@@ -1,0 +1,23 @@
+[
+ {
+  "RuleID": "lab-vendor-api-key",
+  "Description": "Lab vendor API key (fh_live_ / fh_test_ prefix)",
+  "StartLine": 1,
+  "EndLine": 1,
+  "StartColumn": 23,
+  "EndColumn": 61,
+  "Match": "fh_live_dev_seeded_key_4fbd7c0ad0b24f38",
+  "Secret": "fh_live_dev_seeded_key_4fbd7c0ad0b24f38",
+  "File": "config/dev.py",
+  "SymlinkFile": "",
+  "Commit": "061167133b73c1a6fe2c45bd2e1fa9fe9c7e0d31",
+  "Link": "https://github.com/schmitthub/prodsec-challenge/blob/061167133b73c1a6fe2c45bd2e1fa9fe9c7e0d31/config/dev.py#L1",
+  "Entropy": 3.965301,
+  "Author": "fhsol",
+  "Email": "sol.ozzan@functionhealth.com",
+  "Date": "2026-04-25T01:45:01Z",
+  "Message": "Update README and candidate brief to reflect FastAPI service details and setup instructions",
+  "Tags": [],
+  "Fingerprint": "061167133b73c1a6fe2c45bd2e1fa9fe9c7e0d31:config/dev.py:lab-vendor-api-key:1"
+ }
+]

@@ -1,12 +1,11 @@
-# .semgrepignore — project-specific exclusions (uses .gitignore syntax)
+# .semgrepignore — project-specific exclusions (.gitignore syntax).
+# Providing this file replaces Semgrep's built-in default ignore list.
 
-
-# Documentation and config (not executable Go code)
-docs/
-templates/
+# Agent/tooling state and docs — not application code
 .claude/
 .serena/
+challenge/
 
-# Shell scripts — p/golang rules don't apply; p/security-audit may
-# flag intentional patterns (e.g. curl|bash in installer)
-scripts/
+# Build/venv output
+.venv/
+dist/
