@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 
 from app.routes import login, records, search, webhooks
 
-
 app = FastAPI(title="Records API", version="0.1.0")
 
 app.include_router(login.router)

@@ -26,7 +26,9 @@ def read_record(
 ):
     record = db.get_record(record_id)
     if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
 
     return record
 
@@ -38,10 +40,14 @@ def read_record_notes(
 ):
     record = db.get_record(record_id)
     if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
 
     if current_user.role != "staff" and record["owner_user_id"] != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
 
     return {
         "record_id": record_id,
