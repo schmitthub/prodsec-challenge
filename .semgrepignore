@@ -1,0 +1,11 @@
+# .semgrepignore — project-specific exclusions (.gitignore syntax).
+# Providing this file replaces Semgrep's built-in default ignore list.
+
+# Agent/tooling state and docs — not application code
+.claude/
+.serena/
+challenge/
+
+# Build/venv output
+.venv/
+dist/

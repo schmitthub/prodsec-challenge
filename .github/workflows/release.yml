@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Per-job permissions only — reusable workflows inherit from the calling job,
+# not from a workflow-level block. The `validate` job needs read-only contents
+# for fetch; the `build` job declares the full superset that build.yml's steps
+# require (GitHub Release upload, Sigstore OIDC for cosign + attestations,
+# attestation API).
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag is semver
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9._-]+)?(\+[a-zA-Z0-9._-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not valid semver (expected vMAJOR.MINOR.PATCH[-prerelease])"
+            exit 1
+          fi
+
+      - name: Validate tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "${{ github.sha }}" origin/main; then
+            echo "::error::Tag must point to a commit on the main branch"
+            exit 1
+          fi
+
+  image:
+    name: Image
+    # Same workflow as CI, plus the sign job: build (restores what main built
+    # for this commit from cache) -> scan (gate blocks the release) -> sign.
+    needs: validate
+    permissions:
+      contents: read
+      security-events: write   # scan SARIF -> Code scanning (category: container)
+      actions: read
+      id-token: write          # Sigstore OIDC token for cosign + attestation signing
+      attestations: write      # GitHub attestation API write
+      artifact-metadata: write # actions/attest@v4
+    uses: ./.github/workflows/image.yml
+    with:
+      release: true
+
+  build:
+    name: Build
+    needs: [validate, image]
+    permissions:
+      contents: write          # `gh release create` uploads the artifacts
+      id-token: write          # Sigstore OIDC token for attestation signing
+      attestations: write      # GitHub attestation API write
+      artifact-metadata: write # new in actions/attest@v4 — required even though listed only in the README Usage section, not the inline Examples block
+    uses: ./.github/workflows/build.yml
+    with:
+      image-artifact: ${{ needs.image.outputs.signed-artifact }}
+      image-archive: ${{ needs.image.outputs.signed-archive }}
+      image-id: ${{ needs.image.outputs.image-id }}

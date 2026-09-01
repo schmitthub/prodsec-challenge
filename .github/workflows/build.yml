@@ -1,0 +1,213 @@
+name: Build
+
+# Reusable release build, invoked once per v* tag by release.yml after its tag
+# checks pass. This job assembles and publishes; it builds, scans and signs
+# nothing image-related itself. The release is the source tree at the tag, the
+# container image that image.yml built, gated and signed for that
+# commit (handed over as a run artifact), and what a consumer needs to trust
+# them:
+#
+#   release-subjects/records-api-<tag>.tar.gz              git archive of the tag
+#   release-subjects/records-api-<tag>.image.tar.gz        docker-archive of the image (`docker load -i`),
+#                                                          signed + attested by image.yml
+#   release-subjects/records-api-<tag>.sbom.spdx.json      syft SBOM (SPDX 2.3) of uv.lock (resolved, transitive)
+#   release-subjects/records-api-<tag>.sbom.cdx.json       syft SBOM (CycloneDX 1.6)
+#   release-subjects/SHA256SUMS
+#   release-subjects/*.sigstore.json                       cosign keyless signatures (Sigstore bundles)
+#
+# plus GitHub attestations (SLSA build provenance for every file this job
+# produces, SBOM attestation for the archive), attached to a GitHub Release.
+#
+# SLSA Build L3 isolation: the Sigstore signing identity in the Fulcio cert's SAN
+# is THIS file's path+ref (job_workflow_ref), not the caller's, and the caller
+# cannot inject steps into this job. Verify against this identity:
+#
+#   gh attestation verify records-api-<tag>.tar.gz --owner schmitthub \
+#     --signer-workflow schmitthub/prodsec-challenge/.github/workflows/build.yml
+#   cosign verify-blob --bundle records-api-<tag>.tar.gz.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/schmitthub/prodsec-challenge/\.github/workflows/build\.yml@' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     records-api-<tag>.tar.gz
+#
+# The image archive was signed by a different job, so its identity is
+# image.yml (see the header there); SHA256SUMS covers it like every other file.
+#
+# Permissions are declared on the calling job in release.yml (reusable
+# workflows inherit job permissions, not workflow-level permissions).
+
+on:
+  workflow_call:
+    inputs:
+      image-artifact:
+        description: Run artifact from image.yml's sign job holding <name>-<tag>.image.tar.gz and its .sigstore.json
+        required: true
+        type: string
+      image-archive:
+        description: File name of the gzipped docker-archive inside that artifact
+        required: true
+        type: string
+      image-id:
+        description: Image config digest, quoted in the release notes
+        required: false
+        type: string
+        default: ""
+
+env:
+  NAME: records-api
+
+jobs:
+  build:
+    name: Archive, SBOM, sign, attest, release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+
+      - name: Source archive of the tag
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          ARCHIVE="release-subjects/${NAME}-${TAG}.tar.gz"
+          mkdir -p release-subjects
+          git archive --format=tar.gz --prefix="${NAME}-${TAG}/" -o "${ARCHIVE}" "${TAG}"
+          {
+            echo "TAG=${TAG}"
+            echo "ARCHIVE=${ARCHIVE}"
+            echo "SBOM_SPDX=release-subjects/${NAME}-${TAG}.sbom.spdx.json"
+          } >> "$GITHUB_ENV"
+
+      - name: Download the signed image archive from image.yml
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.image-artifact }}
+          path: ${{ runner.temp }}/image-signed
+
+      - name: Add the image archive to the release set
+        # The archive goes in now so SHA256SUMS covers it; its Sigstore bundle
+        # is copied in after this job's own signing loop, which must not re-sign
+        # or re-attest what image.yml already signed.
+        env:
+          IMAGE_ARCHIVE: ${{ inputs.image-archive }}
+        run: |
+          set -euo pipefail
+          cp "${RUNNER_TEMP}/image-signed/${IMAGE_ARCHIVE}" release-subjects/
+          echo "IMAGE_GZ=release-subjects/${IMAGE_ARCHIVE}" >> "$GITHUB_ENV"
+
+      - name: SBOM (syft over uv.lock)
+        # uv.lock is the resolved, hash-pinned dependency set (transitives
+        # included), so the SBOM reflects what actually runs. .syft.yaml sets
+        # the source name.
+        run: |
+          syft scan file:uv.lock \
+            -o "spdx-json=${SBOM_SPDX}" \
+            -o "cyclonedx-json=release-subjects/${NAME}-${TAG}.sbom.cdx.json"
+
+      - name: Checksums
+        run: |
+          cd release-subjects
+          sha256sum -- *.tar.gz *.json > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Sign artifacts (cosign keyless via GitHub OIDC)
+        run: |
+          set -euo pipefail
+          for f in release-subjects/*.tar.gz release-subjects/*.json release-subjects/SHA256SUMS; do
+            [ "$f" = "${IMAGE_GZ}" ] && continue   # signed by image.yml
+            cosign sign-blob --yes --bundle "${f}.sigstore.json" "$f"
+          done
+          cp "${RUNNER_TEMP}/image-signed/"*.sigstore.json release-subjects/
+
+      - name: Attest release artifacts (SLSA build provenance)
+        # Default mode of actions/attest: no predicate inputs -> auto-generated
+        # SLSA build provenance for every subject this job produced. The image
+        # archive already carries image.yml's attestation.
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ env.ARCHIVE }}
+            release-subjects/*.sbom.*.json
+            release-subjects/SHA256SUMS
+
+      - name: Attest SBOM
+        # SBOM mode of actions/attest: sbom-path turns the SPDX document into an
+        # SBOM attestation bound to the archive.
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ env.ARCHIVE }}
+          sbom-path: ${{ env.SBOM_SPDX }}
+
+      - name: Verify what was just produced
+        # Fail the release rather than publish artifacts whose attestations or
+        # signatures do not verify against this workflow's identity.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify "${ARCHIVE}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/build.yml"
+          gh attestation verify "${IMAGE_GZ}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/image.yml"
+          for f in release-subjects/*.tar.gz release-subjects/*.json release-subjects/SHA256SUMS; do
+            case "$f" in *.sigstore.json) continue ;; esac
+            SIGNER=build; [ "$f" = "${IMAGE_GZ}" ] && SIGNER=image
+            cosign verify-blob --bundle "${f}.sigstore.json" \
+              --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/\.github/workflows/${SIGNER}\.yml@" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              "$f"
+          done
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_ID: ${{ inputs.image-id }}
+        run: |
+          set -euo pipefail
+          cat > notes.md <<NOTES
+          ## Verify before you deploy it
+
+          \`\`\`bash
+          # Provenance + SBOM attestations (GitHub Sigstore instance)
+          gh attestation verify ${NAME}-${TAG}.tar.gz --repo ${GITHUB_REPOSITORY} \\
+            --signer-workflow ${GITHUB_REPOSITORY}/.github/workflows/build.yml
+
+          # cosign keyless signature (public Sigstore / Rekor)
+          cosign verify-blob --bundle ${NAME}-${TAG}.tar.gz.sigstore.json \\
+            --certificate-identity-regexp '^https://github.com/${GITHUB_REPOSITORY}/\\.github/workflows/build\\.yml@' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \\
+            ${NAME}-${TAG}.tar.gz
+
+          sha256sum -c SHA256SUMS
+          \`\`\`
+
+          Container image \`${NAME}-${TAG}.image.tar.gz\` (image ID \`${IMAGE_ID:-n/a}\`), built once for this commit,
+          osv-scanned, then signed and attested by \`image.yml\` -- verify it against that identity:
+
+          \`\`\`bash
+          gh attestation verify ${NAME}-${TAG}.image.tar.gz --repo ${GITHUB_REPOSITORY} \\
+            --signer-workflow ${GITHUB_REPOSITORY}/.github/workflows/image.yml
+          cosign verify-blob --bundle ${NAME}-${TAG}.image.tar.gz.sigstore.json \\
+            --certificate-identity-regexp '^https://github.com/${GITHUB_REPOSITORY}/\\.github/workflows/image\\.yml@' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \\
+            ${NAME}-${TAG}.image.tar.gz
+          docker load -i ${NAME}-${TAG}.image.tar.gz
+          \`\`\`
+
+          SBOMs: \`${NAME}-${TAG}.sbom.spdx.json\` (SPDX), \`${NAME}-${TAG}.sbom.cdx.json\` (CycloneDX).
+          NOTES
+          gh release create "${TAG}" release-subjects/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --generate-notes \
+            --notes-file notes.md

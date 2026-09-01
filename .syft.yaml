@@ -1,0 +1,5 @@
+# syft config for the records-api release SBOM (.github/workflows/build.yml).
+# The SBOM is generated from uv.lock (`syft scan file:uv.lock`): the fully
+# resolved, hash-pinned dependency set, transitives included.
+source:
+  name: "records-api"

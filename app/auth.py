@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 import jwt
@@ -8,7 +8,6 @@ from fastapi.security import OAuth2PasswordBearer
 from app import db
 from app.models import User
 
-
 JWT_SECRET = "local-records-api-secret-for-demo-use-only"
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_MINUTES = 30
@@ -17,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 
 def create_access_token(user_id: str) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": user_id,
         "iat": now,

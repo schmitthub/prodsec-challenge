@@ -1,0 +1,97 @@
+name: OSV image scan
+description: >-
+  Scan a docker-archive (output of `docker save`) with a pinned osv-scanner,
+  upload the SARIF to Code scanning, and fail when any finding's CVSS score
+  meets the threshold. Used by security.yml (PR/main) and build.yml (release)
+  so both apply the same version and the same gate.
+
+inputs:
+  archive:
+    description: Path to the docker-archive tarball. Must be uncompressed; osv-scanner does not read .gz.
+    required: true
+  category:
+    description: Code scanning category for the SARIF upload.
+    required: true
+  cvss-threshold:
+    description: >-
+      Fail when any finding's max CVSS score is >= this number. Pass the
+      CVSS_FAIL_THRESHOLD repository variable; empty falls back to 9.0.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install osv-scanner
+      shell: bash
+      # Version must match the google/osv-scanner rev in .pre-commit-config.yaml.
+      run: |
+        set -euo pipefail
+        OSV_SCANNER_VERSION=2.5.1
+        BASE_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}"
+        cd "${RUNNER_TEMP}"
+        curl -sSfL "${BASE_URL}/osv-scanner_linux_amd64" -o osv-scanner_linux_amd64
+        curl -sSfL "${BASE_URL}/osv-scanner_SHA256SUMS" -o osv-scanner_SHA256SUMS
+        grep " osv-scanner_linux_amd64$" osv-scanner_SHA256SUMS | sha256sum --check
+        chmod +x osv-scanner_linux_amd64
+        sudo mv osv-scanner_linux_amd64 /usr/local/bin/osv-scanner
+        rm -f osv-scanner_SHA256SUMS
+        osv-scanner --version
+
+    - name: Scan the image archive
+      id: scan
+      shell: bash
+      env:
+        ARCHIVE: ${{ inputs.archive }}
+      # osv-scanner writes one format per run: SARIF for Code scanning, JSON for
+      # the gate. Exit 1 means findings (decided by the gate below), 0 means
+      # clean; anything else is a scanner error and fails here.
+      run: |
+        set -euo pipefail
+        OUT="${RUNNER_TEMP}/osv-image"
+        mkdir -p "${OUT}"
+        for fmt in sarif json; do
+          rc=0
+          osv-scanner scan image --archive \
+            --format "${fmt}" --output-file "${OUT}/results.${fmt}" \
+            --verbosity error "${ARCHIVE}" || rc=$?
+          if [ "${rc}" -gt 1 ]; then
+            echo "::error::osv-scanner exited ${rc} (see https://google.github.io/osv-scanner/output/#return-codes)"
+            exit "${rc}"
+          fi
+        done
+        echo "dir=${OUT}" >> "${GITHUB_OUTPUT}"
+
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+      with:
+        sarif_file: ${{ steps.scan.outputs.dir }}/results.sarif
+        category: ${{ inputs.category }}
+
+    - name: Severity gate
+      shell: bash
+      env:
+        RESULTS: ${{ steps.scan.outputs.dir }}/results.json
+        THRESHOLD: ${{ inputs.cvss-threshold }}
+      # osv-scanner groups the aliases of one vulnerability (CVE/GHSA/PYSEC/...)
+      # and reports the group's highest CVSS score as max_severity; it is ""
+      # when no score has been published, which counts as 0 here.
+      run: |
+        set -euo pipefail
+        THRESHOLD="${THRESHOLD:-9.0}"
+        if ! [[ "${THRESHOLD}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+          echo "::error::cvss-threshold must be a number, got '${THRESHOLD}'"
+          exit 1
+        fi
+        TOTAL="$(jq '[.results[].packages[].groups[]] | length' "${RESULTS}")"
+        mapfile -t BLOCKING < <(jq -r --argjson t "${THRESHOLD}" '
+          [ .results[].packages[] | .package as $p | .groups[]
+            | select((.max_severity | tonumber? // 0) >= $t)
+            | "\($p.ecosystem) \($p.name)@\($p.version) CVSS \(.max_severity) \(.ids | join(","))"
+          ] | unique | .[]
+        ' "${RESULTS}")
+        echo "${TOTAL} finding(s); ${#BLOCKING[@]} at CVSS >= ${THRESHOLD} (all findings are in Code scanning)"
+        if [ "${#BLOCKING[@]}" -gt 0 ]; then
+          printf '::error::%s\n' "${BLOCKING[@]}"
+          exit 1
+        fi

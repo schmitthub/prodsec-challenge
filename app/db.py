@@ -3,7 +3,6 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-
 USERS = {
     "user_alice": {
         "id": "user_alice",
@@ -73,7 +72,9 @@ def search_records(term: str) -> list[dict[str, Any]]:
         RECORDS.values(),
     )
 
-    query = f"SELECT * FROM records WHERE status = 'released' AND summary LIKE '%{term}%'"
+    query = (
+        f"SELECT * FROM records WHERE status = 'released' AND summary LIKE '%{term}%'"
+    )
     rows = connection.execute(query).fetchall()
     connection.close()
     return [dict(row) for row in rows]

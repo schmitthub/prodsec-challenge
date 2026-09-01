@@ -1,0 +1,27 @@
+# Gitleaks config for records-api. Extends the default ruleset with one rule for
+# the lab vendor's credential format (config/dev.py uses it), which the generic
+# high-entropy rules do not catch. Findings that pre-date this config are
+# accepted via the committed baseline (gitleaks-report.json); new occurrences fail.
+# The baseline is stored redacted (regenerate with --redact); every scan that
+# consumes it must also pass --redact, since gitleaks compares Match/Secret
+# against the baseline only when redact is 0.
+title = "records-api"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "lab-vendor-api-key"
+description = "Lab vendor API key (fh_live_ / fh_test_ prefix)"
+regex = '''\bfh_(?:live|test)_[A-Za-z0-9_]{16,}\b'''
+keywords = ["fh_live_", "fh_test_"]
+entropy = 3.0
+
+[allowlist]
+description = "Tooling caches and agent scratch — never source"
+paths = [
+  '''^\.serena/''',
+  '''^\.venv/''',
+  '''^\.claude/docs/''',
+  '''^gitleaks-report\.json$''',
+]

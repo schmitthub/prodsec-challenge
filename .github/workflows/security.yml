@@ -1,18 +1,232 @@
 name: security
 
+# Reusable security checks, called by pr.yml (PRs) and main.yml (pushes to main).
+#
+# Gating policy (the part a busy product team has to live with):
+#   - Semgrep: on PRs only findings *introduced by the PR* count (--baseline-commit),
+#     and only top-severity findings fail the job: ERROR on Semgrep's classic
+#     ERROR/WARNING/INFO scale, or HIGH/CRITICAL on the CRITICAL/HIGH/MEDIUM/LOW
+#     scale rules may use since 1.72. Everything (all severities, full history
+#     on main) is uploaded to Code scanning as SARIF so WARNING/MEDIUM and
+#     INFO/LOW show up as annotations and alerts without blocking merges.
+#   - Bandit: same shape as Semgrep — full scan → SARIF (category bandit); on
+#     PRs the gate diffs against a scan of the base commit (bandit -b) and only
+#     new HIGH-severity findings fail. main: upload only.
+#   - Gitleaks: any new secret fails; accepted historical findings live in the
+#     committed baseline (gitleaks-report.json), custom rules in .gitleaks.toml.
+#   - Container image (image.yml): built once per commit into a docker-archive
+#     (cached by commit), scanned by osv-scanner (.github/actions/osv-image-scan).
+#     All findings → Code scanning; the scan job fails when any finding's CVSS
+#     score >= the CVSS_FAIL_THRESHOLD repository variable (Settings → Secrets
+#     and variables → Actions; default 9.0). release.yml runs the same workflow
+#     with `release: true`, which adds the sign job after the scan.
+#   - dependency-review (PRs): diffs the dependency graph against the base and
+#     fails on added/changed dependencies with High+ advisories. Known vulns in
+#     pins already on main surface through the image scan and Dependabot alerts,
+#     so there is no separate lockfile scan job.
+#
+# Tool versions here (and in .github/actions/osv-image-scan) must match the
+# pre-commit hook revs in .pre-commit-config.yaml.
+
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      run_dependency_review:
+        required: false
+        type: boolean
+        default: false
+
+# Reusable workflows take their permissions from the calling job; this block
+# documents the superset the jobs below need.
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+  actions: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    container:
+      # Pin for reproducibility. When bumping: update this tag AND the
+      # semgrep/pre-commit rev in .pre-commit-config.yaml.
+      #   https://hub.docker.com/r/semgrep/semgrep/tags
+      image: semgrep/semgrep:1.175.0@sha256:b94b53d02fd4a022f9eac4e2af1380f5c3c4c21400e79d3336bdff1d1db5e796
+    timeout-minutes: 10
+    # Dependabot PRs only touch lockfiles; SAST adds nothing and its token is limited.
+    if: github.actor != 'dependabot[bot]'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Semgrep scan
+        # PRs: --baseline-commit limits findings to what the PR introduced.
+        # main: full scan (no baseline). Both write SARIF (for Code scanning)
+        # and JSON (for the severity gate) in one run; the run itself never fails.
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          BASELINE=""
+          if [ -n "$BASE_SHA" ]; then
+            echo "Incremental scan against base $BASE_SHA"
+            BASELINE="--baseline-commit $BASE_SHA"
+          else
+            echo "Full scan (no baseline)"
+          fi
+          # shellcheck disable=SC2086
+          semgrep scan $BASELINE \
+            --config p/python \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --config p/github-actions \
+            --config .semgrep/ \
+            --metrics=off --disable-version-check \
+            --sarif-output semgrep.sarif \
+            --json-output semgrep.json
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+      - name: Upload Semgrep SARIF
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      - name: Severity gate (ERROR/HIGH/CRITICAL block, lower severities annotate)
+        if: github.event_name == 'pull_request'
+        # Same script the pre-commit hooks run, so the local and CI gates agree.
+        run: python3 .github/scripts/semgrep_gate.py --report semgrep.json
+
+  bandit:
+    name: Bandit SAST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    env:
+      # Must match the bandit rev in .pre-commit-config.yaml.
+      BANDIT_VERSION: 1.9.4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.11"
-      - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
-      - run: python -m unittest discover -s tests
+
+      - name: Install bandit
+        run: python -m pip install "bandit[toml,sarif]==${BANDIT_VERSION}"
+
+      - name: Bandit scan
+        # Full tree, every severity, never fails: this is the Code scanning feed.
+        run: bandit -c pyproject.toml -r . -f sarif -o bandit.sarif --exit-zero
+
+      - name: Upload Bandit SARIF
+        if: always() && hashFiles('bandit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
+      - name: Severity gate (new HIGH findings block, lower severities annotate)
+        if: github.event_name == 'pull_request'
+        # bandit -b compares against a JSON report of the base commit. Filenames
+        # must match, so the base is scanned from inside its own tree with -r .
+        # The config always comes from the PR head: the base may predate it.
+        run: |
+          BASE_DIR="$RUNNER_TEMP/bandit-base"
+          mkdir -p "$BASE_DIR"
+          git archive "$BASE_SHA" | tar -x -C "$BASE_DIR"
+          (cd "$BASE_DIR" && bandit -c "$GITHUB_WORKSPACE/pyproject.toml" -r . -f json -o "$RUNNER_TEMP/bandit-base.json" --exit-zero -q)
+          bandit -c pyproject.toml -r . -b "$RUNNER_TEMP/bandit-base.json" --severity-level high
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+  gitleaks:
+    name: Gitleaks secrets
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Raw CLI instead of gitleaks-action: the action does not expose
+      # --baseline-path. Version must match the gitleaks rev in .pre-commit-config.yaml.
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION=8.30.1
+          ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          BASE_URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+
+          curl -sSfL "${BASE_URL}/${ARCHIVE}" -o "${ARCHIVE}"
+          CHECKSUMS="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          curl -sSfL "${BASE_URL}/${CHECKSUMS}" -o "${CHECKSUMS}"
+          grep " ${ARCHIVE}$" "${CHECKSUMS}" | sha256sum --check
+          sudo tar xzf "${ARCHIVE}" -C /usr/local/bin gitleaks
+          rm -f "${ARCHIVE}" "${CHECKSUMS}"
+          gitleaks version
+
+      # --redact is load-bearing: the committed baseline is stored redacted, and
+      # gitleaks only skips the Match/Secret comparison against it when redact > 0.
+      # Dropping the flag would un-suppress every baselined finding.
+      - name: Gitleaks (full history, baseline-aware)
+        run: >-
+          gitleaks git .
+          --config .gitleaks.toml
+          --baseline-path gitleaks-report.json
+          --redact
+          --report-format sarif --report-path results.sarif
+
+      - name: Upload Gitleaks SARIF
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: results.sarif
+          category: gitleaks
+
+  image:
+    name: Container image
+    # image.yml: build (cached by commit) -> scan. No `release` input here, so
+    # the sign job does not run.
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+  dependency-review:
+    name: Dependency review
+    if: ${{ inputs.run_dependency_review }}
+    runs-on: ubuntu-24.04
+    # pull-requests: write only here, for the on-failure summary comment.
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

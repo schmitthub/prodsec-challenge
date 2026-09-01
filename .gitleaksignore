@@ -1,0 +1,4 @@
+# Fingerprints of gitleaks findings accepted for this repo (one per line:
+# <commit>:<path>:<rule-id>:<line>). Pre-existing findings live in the committed
+# baseline (gitleaks-report.json) instead; use this file only for one-off
+# acceptances that must survive a baseline regeneration.

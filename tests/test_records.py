@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-
 client = TestClient(app)
 
 
@@ -37,7 +36,9 @@ class RecordsApiTests(unittest.TestCase):
     def test_member_can_read_their_record_notes(self):
         token = login("alice@example.test", "alice-password")
 
-        response = client.get("/api/records/rec_alice_001/notes", headers=auth_headers(token))
+        response = client.get(
+            "/api/records/rec_alice_001/notes", headers=auth_headers(token)
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["record_id"], "rec_alice_001")

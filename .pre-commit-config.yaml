@@ -1,0 +1,95 @@
+# Optional local convenience so CI failures aren't a surprise. Runner: prek
+# (`uv tool install prek`; `prek run --all-files`). Every security tool below is
+# installed into prek's own cached env from its pinned `rev` — none of them are
+# project (uv) dependencies, so scanner requirements can never constrain the
+# app's runtime pins. Keep each `rev` aligned with the version CI uses.
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+  hooks:
+  -   id: check-yaml
+  -   id: end-of-file-fixer
+  -   id: trailing-whitespace
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: 1f1e8bf348ff38fc88619a38d3ca4d9c56abea49  # frozen: v0.16.5
+  hooks:
+    - id: ruff-check
+      types_or: [ python, pyi, jupyter, pyproject ]
+      args: [ --fix ]
+    - id: ruff-format
+      types_or: [ python, pyi, jupyter, markdown ]
+
+- repo: https://github.com/gitleaks/gitleaks
+  rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1 (matches GITLEAKS_VERSION in security.yml)
+  hooks:
+    - id: gitleaks
+      # --redact is load-bearing: the baseline is stored redacted, and gitleaks only
+      # skips the Match/Secret comparison against it when redact > 0 (upstream hook
+      # entry already passes it; repeated here so a hook-entry change can't drop it).
+      args: [--redact, --baseline-path, gitleaks-report.json]
+
+- repo: https://github.com/PyCQA/bandit
+  rev: 92ae8b82fb422a639f0ed8d99e96cea769594e08  # frozen: 1.9.4
+  hooks:
+    - id: bandit
+      additional_dependencies: ["bandit[toml]"]   # reads [tool.bandit] from pyproject.toml
+      # staged .py files on commit; whole tree with --all-files. --severity-level
+      # high matches the CI gate (lower severities are advisory there too).
+      args: ["-c", "pyproject.toml", "--severity-level", "high"]
+
+- repo: local
+  hooks:
+    # Both hooks run semgrep through .github/scripts/semgrep_gate.py, the same
+    # gate CI uses, so a commit blocks on exactly what the PR check blocks on
+    # (ERROR/HIGH/CRITICAL; the rest is advisory). semgrep's own --severity
+    # flag cannot express that (it drops HIGH/CRITICAL rules), hence the script.
+    # Pin must match the semgrep/semgrep image tag in security.yml.
+    - id: semgrep
+      name: Semgrep SAST
+      entry: python .github/scripts/semgrep_gate.py
+      language: python
+      additional_dependencies: ["semgrep==1.175.0"]
+      types: [text]
+      exclude: ^\.github/workflows/
+      args:
+        - --config=p/python
+        - --config=p/security-audit
+        - --config=p/owasp-top-ten
+        - --config=.semgrep/
+        - --skip-unknown-extensions
+      # Scans the staged files on commit (pre-existing findings in untouched
+      # files don't block unrelated commits); `prek run --all-files` = full scan.
+    - id: semgrep-actions
+      name: Semgrep GitHub Actions
+      entry: python .github/scripts/semgrep_gate.py
+      language: python
+      additional_dependencies: ["semgrep==1.175.0"]
+      files: ^\.github/workflows/.*\.ya?ml$
+      args:
+        - --config=p/github-actions
+        - --config=.semgrep/
+        - --skip-unknown-extensions
+
+- repo: https://github.com/google/osv-scanner
+  rev: c84fa4568f2526d0333e9a914ea8a0a5f74ad68b  # frozen: v2.5.1
+  hooks:
+    - id: osv-scanner
+      # uv.lock is the resolved dependency set (transitives included); SCA
+      # reads it, and only when it changes (upstream hook is always_run).
+      # Known vulns in existing pins surface via the container image scan and
+      # Dependabot alerts; new or changed pins are gated here and by
+      # dependency-review on the PR.
+      always_run: false
+      files: ^uv\.lock$
+      args: ["scan", "source", "-L", "uv.lock"]
+
+- repo: local
+  hooks:
+    - id: unittest
+      name: Unit tests
+      # Same command as test.yml, run when app or test code changes.
+      entry: uv run python -m unittest discover -s tests
+      language: system
+      pass_filenames: false
+      files: ^(app|tests)/.*\.py$
