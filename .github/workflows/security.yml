@@ -101,30 +101,8 @@ jobs:
 
       - name: Severity gate (ERROR/HIGH/CRITICAL block, lower severities annotate)
         if: github.event_name == 'pull_request'
-        run: |
-          python3 - <<'PY'
-          import json, sys
-          results = json.load(open("semgrep.json"))["results"]
-          # Rules carry either the classic ERROR/WARNING/INFO severity or (since
-          # semgrep 1.72) CRITICAL/HIGH/MEDIUM/LOW. ERROR is the classic "high"
-          # tier, so block on ERROR plus HIGH and CRITICAL; the `level` map below
-          # mirrors that same grouping for the workflow annotations.
-          blocking = {"ERROR", "CRITICAL", "HIGH"}
-          level = {"ERROR": "error", "CRITICAL": "error", "HIGH": "error",
-                   "WARNING": "warning", "MEDIUM": "warning",
-                   "INFO": "notice", "LOW": "notice"}
-          for r in results:
-              sev = r["extra"]["severity"]
-              msg = r["extra"]["message"].strip().splitlines()[0]
-              print(f'::{level.get(sev, "notice")} file={r["path"]},line={r["start"]["line"]},title={r["check_id"]}::{msg}')
-          errors = [r for r in results if r["extra"]["severity"] in blocking]
-          print(f"{len(results)} new finding(s); {len(errors)} blocking ({'/'.join(sorted(blocking))})")
-          if errors:
-              print("::error::High-severity Semgrep findings introduced by this PR block merge. "
-                    "Lower severities are advisory (see Code scanning). Justify a true false "
-                    "positive with an inline `# nosemgrep: <rule-id>` comment.")
-              sys.exit(1)
-          PY
+        # Same script the pre-commit hooks run, so the local and CI gates agree.
+        run: python3 .github/scripts/semgrep_gate.py --report semgrep.json
 
   bandit:
     name: Bandit SAST
