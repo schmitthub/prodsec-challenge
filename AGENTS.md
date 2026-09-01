@@ -12,7 +12,7 @@ Status tracker: `challenge/notes.md`. Deliverables still empty: `challenge/repor
 
 ## Commands
 
-`pyproject.toml` (no `[build-system]`: uv treats the project as virtual, `uv sync` installs deps only — the service is run from source) + `uv.lock` are the dependency source of truth (resolved, transitive, hash-pinned; `dev` group is ruff only) — SBOM and the osv-scanner pre-commit hook read `uv.lock`. `requirements.txt` still exists because README/Dockerfile install from it; CI checks it never drifts from the lock, and retiring it is a triage-writeup recommendation. Security scanners are deliberately **not** uv deps — they run from pinned `rev`s in `.pre-commit-config.yaml` (prek-managed envs) so tool requirements can't constrain runtime pins. Python 3.11.
+`pyproject.toml` (no `[build-system]`: uv treats the project as virtual, `uv sync` installs deps only — the service is run from source) + `uv.lock` are the dependency source of truth (resolved, transitive, hash-pinned; `dev` group is ruff only) — SBOM and the osv-scanner pre-commit hook read `uv.lock`. `requirements.txt` still exists because README/Dockerfile/test.yml install from it; retiring it in favour of the lock is a triage-writeup recommendation. Security scanners are deliberately **not** uv deps — they run from pinned `rev`s in `.pre-commit-config.yaml` (prek-managed envs) so tool requirements can't constrain runtime pins. Python 3.11.
 
 ```bash
 uv sync                                        # runtime + dev group (ruff only; scanners live in pre-commit)
@@ -42,7 +42,7 @@ Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`,
 ## CI / release layout (`.github/workflows/`)
 
 - `pr.yml` (pull_request → main) and `main.yml` (push main) are thin callers of two reusable workflows; permissions are declared per calling job — reusable workflows do not inherit workflow-level blocks.
-- `test.yml`: `setup-uv` + `uv sync --frozen`, ruff check/format, unit tests, and a drift check that every pin in `requirements.txt` exists identically in `uv.lock`.
+- `test.yml`: the seeded workflow, untouched apart from SHA-pinning its two actions — `pip install -r requirements.txt` + `unittest`. Not a security workflow; leave it alone.
 - `security.yml` jobs and their gates:
   - `semgrep` — one run writes SARIF (→ Code scanning, all severities) and JSON; on PRs `--baseline-commit` limits findings to the PR's, and only `ERROR|HIGH|CRITICAL` fail (inline python gate). Main: upload only.
   - `gitleaks` — full history, `.gitleaks.toml` (adds `lab-vendor-api-key` rule) + baseline `gitleaks-report.json`; regenerate the baseline with `gitleaks git . --config .gitleaks.toml --redact --report-path gitleaks-report.json` (stored redacted — every scan that consumes it must pass `--redact`, which CI and the prek hook both do; gitleaks compares `Match`/`Secret` against the baseline only when redact is 0), don't use `.gitleaksignore` for it.
