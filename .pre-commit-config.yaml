@@ -34,7 +34,7 @@ repos:
       args: ["-c", "pyproject.toml"]              # staged .py files on commit; whole tree with --all-files
 
 - repo: https://github.com/semgrep/pre-commit
-  rev: 33d4462c25147807aaa122d613a04d9fbd5f4840  # frozen: v1.156.0 (must match semgrep/semgrep image tag in security.yml)
+  rev: 261e339f3e41e8c36b90e05920bd2793212210e2  # frozen: v1.175.0 (must match semgrep/semgrep image tag in security.yml)
   hooks:
     - id: semgrep
       name: Semgrep SAST

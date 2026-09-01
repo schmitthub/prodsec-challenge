@@ -39,12 +39,32 @@ jobs:
             exit 1
           fi
 
+  image:
+    name: Image
+    # Same workflow as CI, plus the sign job: build (restores what main built
+    # for this commit from cache) -> scan (gate blocks the release) -> sign.
+    needs: validate
+    permissions:
+      contents: read
+      security-events: write   # scan SARIF -> Code scanning (category: container)
+      actions: read
+      id-token: write          # Sigstore OIDC token for cosign + attestation signing
+      attestations: write      # GitHub attestation API write
+      artifact-metadata: write # actions/attest@v4
+    uses: ./.github/workflows/image.yml
+    with:
+      release: true
+
   build:
     name: Build
-    needs: validate
+    needs: [validate, image]
     permissions:
       contents: write          # `gh release create` uploads the artifacts
       id-token: write          # Sigstore OIDC token for attestation signing
       attestations: write      # GitHub attestation API write
       artifact-metadata: write # new in actions/attest@v4 — required even though listed only in the README Usage section, not the inline Examples block
     uses: ./.github/workflows/build.yml
+    with:
+      image-artifact: ${{ needs.image.outputs.signed-artifact }}
+      image-archive: ${{ needs.image.outputs.signed-archive }}
+      image-id: ${{ needs.image.outputs.image-id }}

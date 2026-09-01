@@ -9,14 +9,18 @@ name: security
 #     up as annotations and alerts without blocking merges.
 #   - Gitleaks: any new secret fails; accepted historical findings live in the
 #     committed baseline (gitleaks-report.json), custom rules in .gitleaks.toml.
-#   - Container image: built and pushed to a registry that exists only for the
-#     job, scanned by digest. Fails only on Critical CVEs that already have a
-#     fix (only-fixed) — the actionable subset.
+#   - Container image (image.yml): built once per commit into a docker-archive
+#     (cached by commit), scanned by osv-scanner (.github/actions/osv-image-scan).
+#     All findings → Code scanning; the scan job fails when any finding's CVSS
+#     score >= the CVSS_FAIL_THRESHOLD repository variable (Settings → Secrets
+#     and variables → Actions; default 9.0). release.yml runs the same workflow
+#     with `release: true`, which adds the sign job after the scan.
 #   - OSV (uv.lock, the resolved dependency set): report-only → Code scanning.
 #     New vulnerable dependencies added by a PR are blocked by dependency-review.
 #   - dependency-review (PRs): fails on new dependencies with High+ advisories.
 #
-# Tool versions here must match the pre-commit hook revs in .pre-commit-config.yaml.
+# Tool versions here (and in .github/actions/osv-image-scan) must match the
+# pre-commit hook revs in .pre-commit-config.yaml.
 
 on:
   workflow_call:
@@ -42,7 +46,7 @@ jobs:
       # Pin for reproducibility. When bumping: update this tag AND the
       # semgrep/pre-commit rev in .pre-commit-config.yaml.
       #   https://hub.docker.com/r/semgrep/semgrep/tags
-      image: semgrep/semgrep:1.156.0@sha256:a3d49dc967b8534a6a76628e50c51cbfe33eb7195dc2feab1fdc0f100852c8ef
+      image: semgrep/semgrep:1.175.0@sha256:b94b53d02fd4a022f9eac4e2af1380f5c3c4c21400e79d3336bdff1d1db5e796
     timeout-minutes: 10
     # Dependabot PRs only touch lockfiles; SAST adds nothing and its token is limited.
     if: github.actor != 'dependabot[bot]'
@@ -152,76 +156,15 @@ jobs:
           sarif_file: results.sarif
           category: gitleaks
 
-  container:
-    name: Container image scan
-    # The Dockerfile is a local-dev convenience, not a shipped artifact, but its
-    # base image and Python deps are exactly what a deployed image would carry.
-    # Build it, push it to a registry that lives and dies with this job, and
-    # scan it by digest -- the same flow a real registry would get.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    services:
-      registry:
-        image: registry@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33 # registry:3
-        ports:
-          - 5000:5000
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Build and push to the job-local registry
-        id: image
-        run: |
-          set -euo pipefail
-          REF="localhost:5000/records-api:${GITHUB_SHA}"
-          docker build -t "$REF" .
-          docker push "$REF"
-          DIGEST_REF="$(docker inspect --format='{{index .RepoDigests 0}}' "$REF")"
-          echo "Pushed $DIGEST_REF"
-          echo "ref=${DIGEST_REF}" >> "$GITHUB_OUTPUT"
-
-      # In production this job would also emit BuildKit attestations (SBOM +
-      # SLSA provenance) alongside the image in the real registry, so consumers
-      # can verify what they pull. It needs the docker-container buildx driver
-      # and a registry push, which this repo intentionally does not have:
-      #   https://docs.docker.com/build/metadata/attestations/
-      #
-      # - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      #   with:
-      #     driver-opts: network=host   # so the builder can reach localhost:5000
-      # - name: Build with SBOM + provenance attestations
-      #   run: |
-      #     docker buildx build \
-      #       --sbom=true \
-      #       --provenance=mode=max \
-      #       --tag "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}" \
-      #       --push .
-      # - name: Inspect attestations attached to the image
-      #   run: |
-      #     docker buildx imagetools inspect "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}" \
-      #       --format '{{ json .SBOM }}{{ json .Provenance }}'
-      # Then sign the image digest with `cosign sign` (keyless) and verify with
-      # `cosign verify --certificate-identity-regexp ... --certificate-oidc-issuer ...`.
-
-      - name: Grype vulnerability scan (by digest, from the registry)
-        id: grype
-        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
-        env:
-          GRYPE_REGISTRY_INSECURE_USE_HTTP: "true"   # job-local registry is plain HTTP on localhost
-        with:
-          image: registry:${{ steps.image.outputs.ref }}
-          output-format: sarif
-          fail-build: true
-          severity-cutoff: critical
-          only-fixed: true
-
-      - name: Upload Grype SARIF
-        if: always() && steps.grype.outputs.sarif != ''
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
-        with:
-          sarif_file: ${{ steps.grype.outputs.sarif }}
-          category: container
+  image:
+    name: Container image
+    # image.yml: build (cached by commit) -> scan. No `release` input here, so
+    # the sign job does not run.
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
 
   osv:
     name: OSV dependency scan

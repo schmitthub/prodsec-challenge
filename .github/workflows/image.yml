@@ -1,0 +1,235 @@
+name: Image
+
+# Reusable container image pipeline, called by security.yml (every PR update,
+# every push to main) and by release.yml (tags):
+#
+#   build  docker build -> docker save; the archive is cached by commit
+#          (actions/cache) and uploaded as a run artifact for the jobs below.
+#          A tag run restores what its main-branch run built instead of
+#          rebuilding; a miss (evicted, or main never ran) falls back to a build.
+#   scan   osv-scanner over the archive (.github/actions/osv-image-scan). All
+#          findings -> Code scanning (category: container); fails when any
+#          finding's CVSS score >= the CVSS_FAIL_THRESHOLD repository variable
+#          (Settings -> Secrets and variables -> Actions; default 9.0).
+#   sign   release calls only (input `release: true`), after scan passes:
+#          gzip to records-api-<tag>.image.tar.gz, cosign keyless signature,
+#          SLSA build provenance via actions/attest, self-verify, hand the
+#          archive + Sigstore bundle to build.yml as a run artifact.
+#
+# There is no image registry in this project (the Dockerfile is a local-dev
+# convenience; the service is deployed from source); the docker-archive is the
+# artifact, and the release ships it.
+#
+# Signing identity (Fulcio cert SAN) is THIS file's job_workflow_ref. Verify
+# the image archive against it, not against build.yml:
+#
+#   gh attestation verify records-api-<tag>.image.tar.gz --owner schmitthub \
+#     --signer-workflow schmitthub/prodsec-challenge/.github/workflows/image.yml
+#   cosign verify-blob --bundle records-api-<tag>.image.tar.gz.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/schmitthub/prodsec-challenge/\.github/workflows/image\.yml@' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     records-api-<tag>.image.tar.gz
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        description: Also run the sign job (release.yml sets this; PR/main runs do not)
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      image-id:
+        description: Image config digest (the image ID `docker load` reports)
+        value: ${{ jobs.build.outputs.image-id }}
+      signed-artifact:
+        description: "release only: run artifact holding <name>-<tag>.image.tar.gz and its .sigstore.json bundle"
+        value: ${{ jobs.sign.outputs.artifact }}
+      signed-archive:
+        description: "release only: file name of the gzipped docker-archive inside that artifact"
+        value: ${{ jobs.sign.outputs.archive }}
+
+# Reusable workflows take their permissions from the calling job; this block
+# documents the superset the jobs below need (sign's are release-only).
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+env:
+  NAME: records-api
+
+jobs:
+  build:
+    name: Build image archive
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      artifact: ${{ steps.meta.outputs.artifact }}
+      archive: ${{ steps.meta.outputs.archive }}
+      image-id: ${{ steps.meta.outputs.image-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore the archive built for this commit
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/image/${{ env.NAME }}.tar
+          key: image-${{ github.sha }}
+
+      - name: Build and export
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/image"
+          docker build -t "${NAME}:${GITHUB_SHA}" .
+          docker save -o "${RUNNER_TEMP}/image/${NAME}.tar" "${NAME}:${GITHUB_SHA}"
+
+      # In production this build would also emit BuildKit attestations (SBOM +
+      # SLSA provenance) alongside the image in a registry, so consumers can
+      # verify what they pull. It needs the docker-container buildx driver and
+      # a registry push, which this repo intentionally does not have:
+      #   https://docs.docker.com/build/metadata/attestations/
+      #
+      # - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      # - name: Build with SBOM + provenance attestations
+      #   run: |
+      #     docker buildx build \
+      #       --sbom=true \
+      #       --provenance=mode=max \
+      #       --tag "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}" \
+      #       --push .
+      # - name: Inspect attestations attached to the image
+      #   run: |
+      #     docker buildx imagetools inspect "ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}" \
+      #       --format '{{ json .SBOM }}{{ json .Provenance }}'
+      # Then sign the image digest with `cosign sign` (keyless) and verify with
+      # `cosign verify --certificate-identity-regexp ... --certificate-oidc-issuer ...`.
+
+      - name: Describe the archive
+        id: meta
+        # Read the image ID out of the archive's manifest so it is the same
+        # whether the archive was built now or restored from cache.
+        run: |
+          set -euo pipefail
+          IMAGE_ID="$(tar -xOf "${RUNNER_TEMP}/image/${NAME}.tar" manifest.json \
+            | jq -r '.[0].Config | capture("(?<h>[0-9a-f]{64})") | "sha256:" + .h')"
+          echo "Image ${IMAGE_ID} ($(stat -c %s "${RUNNER_TEMP}/image/${NAME}.tar") bytes, cache-hit=${CACHE_HIT:-false})"
+          {
+            echo "artifact=${NAME}-image"
+            echo "archive=${NAME}.tar"
+            echo "image-id=${IMAGE_ID}"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+
+      - name: Upload for the scan and sign jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.meta.outputs.artifact }}
+          path: ${{ runner.temp }}/image/${{ steps.meta.outputs.archive }}
+          if-no-files-found: error
+          retention-days: 1
+
+  scan:
+    name: Scan image archive
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read         # checkout, for the local composite action
+      security-events: write # SARIF -> Code scanning
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/image
+
+      - name: OSV scan (gate on vars.CVSS_FAIL_THRESHOLD, default 9.0)
+        uses: ./.github/actions/osv-image-scan
+        with:
+          archive: ${{ runner.temp }}/image/${{ needs.build.outputs.archive }}
+          category: container
+          cvss-threshold: ${{ vars.CVSS_FAIL_THRESHOLD }}
+
+  sign:
+    name: Sign and attest image archive
+    # Release only, and only for an image that passed the gate.
+    if: ${{ inputs.release }}
+    needs: [build, scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read           # gh attestation verify
+      id-token: write          # Sigstore OIDC token for cosign + attestation signing
+      attestations: write      # GitHub attestation API write
+      artifact-metadata: write # actions/attest@v4
+    outputs:
+      artifact: ${{ steps.meta.outputs.artifact }}
+      archive: ${{ steps.meta.outputs.archive }}
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/image
+
+      - name: Package the archive for the release
+        id: meta
+        env:
+          IMAGE_ARCHIVE: ${{ needs.build.outputs.archive }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          ARCHIVE="${NAME}-${TAG}.image.tar.gz"
+          mkdir -p image-signed
+          gzip -c "${RUNNER_TEMP}/image/${IMAGE_ARCHIVE}" > "image-signed/${ARCHIVE}"
+          echo "IMAGE_GZ=image-signed/${ARCHIVE}" >> "$GITHUB_ENV"
+          {
+            echo "artifact=${NAME}-image-signed"
+            echo "archive=${ARCHIVE}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Sign (cosign keyless via GitHub OIDC)
+        run: cosign sign-blob --yes --bundle "${IMAGE_GZ}.sigstore.json" "${IMAGE_GZ}"
+
+      - name: Attest (SLSA build provenance)
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ env.IMAGE_GZ }}
+
+      - name: Verify against this workflow's identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify "${IMAGE_GZ}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/image.yml"
+          cosign verify-blob --bundle "${IMAGE_GZ}.sigstore.json" \
+            --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/\.github/workflows/image\.yml@" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${IMAGE_GZ}"
+
+      - name: Upload for the release assembly
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.meta.outputs.artifact }}
+          path: image-signed/
+          if-no-files-found: error
+          retention-days: 1

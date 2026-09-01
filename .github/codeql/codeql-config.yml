@@ -1,0 +1,19 @@
+name: "Custom CodeQL Configuration"
+
+# Disable default queries if you only want specific suites
+disable-default-queries: false
+
+# Include specific query suites or single queries
+queries:
+  - uses: security-and-quality
+  - uses: ./.github/codeql/custom-queries/challenge.ql
+
+# Ignore specific paths like test files or external libraries
+paths-ignore:
+  - '**/.venv/**'
+  - '**/venv/**'
+  - '**/tests/**'
+
+# Explicitly focus on certain folders
+paths:
+  - src/

@@ -29,4 +29,3 @@ dev = [
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
-skips = ["B101"] # B101 ignores assert statements globally if needed
