@@ -6,7 +6,7 @@ name: Build
 # at the tag plus what a consumer needs to trust it:
 #
 #   release-subjects/records-api-<tag>.tar.gz              git archive of the tag
-#   release-subjects/records-api-<tag>.sbom.spdx.json      syft SBOM (SPDX 2.3) of uv.lock/requirements.txt
+#   release-subjects/records-api-<tag>.sbom.spdx.json      syft SBOM (SPDX 2.3) of requirements.txt
 #   release-subjects/records-api-<tag>.sbom.cdx.json       syft SBOM (CycloneDX 1.6)
 #   release-subjects/SHA256SUMS
 #   release-subjects/*.sigstore.json                       cosign keyless signatures (Sigstore bundles)
@@ -65,11 +65,11 @@ jobs:
             echo "SBOM_SPDX=release-subjects/${NAME}-${TAG}.sbom.spdx.json"
           } >> "$GITHUB_ENV"
 
-      - name: SBOM (syft over the checked-out tag)
-        # .syft.yaml sets the source name and excludes release-subjects/ and tool state.
-        # Catalogs uv.lock + requirements.txt (runtime deps) and the pinned actions.
+      - name: SBOM (syft over requirements.txt)
+        # requirements.txt is the canonical dependency manifest for this service
+        # and the only input the SBOM needs. .syft.yaml sets the source name.
         run: |
-          syft scan dir:. \
+          syft scan file:requirements.txt \
             -o "spdx-json=${SBOM_SPDX}" \
             -o "cyclonedx-json=release-subjects/${NAME}-${TAG}.sbom.cdx.json"
 

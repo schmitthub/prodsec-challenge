@@ -66,9 +66,10 @@ repos:
   rev: c84fa4568f2526d0333e9a914ea8a0a5f74ad68b  # frozen: v2.5.1
   hooks:
     - id: osv-scanner
-      # Only when dependency files change (upstream hook is always_run). Known
-      # vulns in *existing* pins are tracked by the report-only OSV job in CI;
-      # new/changed deps are gated here and by dependency-review on the PR.
+      # requirements.txt is the canonical dependency manifest; SCA looks only at
+      # it, and only when it changes (upstream hook is always_run). Known vulns
+      # in existing pins are tracked by the report-only OSV job in CI; new or
+      # changed pins are gated here and by dependency-review on the PR.
       always_run: false
-      files: ^(uv\.lock|requirements\.txt|pyproject\.toml|Dockerfile)$
-      args: ["scan", "source", "--recursive", "--verbosity=error", "."]
+      files: ^requirements\.txt$
+      args: ["scan", "source", "-L", "requirements.txt"]

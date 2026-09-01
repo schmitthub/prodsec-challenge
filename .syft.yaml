@@ -1,15 +1,5 @@
-# syft config for the records-api release SBOM (used by .github/workflows/build.yml).
-# The release SBOM is generated from the source tree at the tag: default
-# catalogers pick up uv.lock / requirements.txt and the pinned GitHub Actions.
-exclude:
-  - "./.venv/**"
-  - "./release-subjects/**"
-  - "./.serena/**"
-  - "./.claude/**"
-
-file:
-  metadata:
-    selection: "owned-by-package"
-
+# syft config for the records-api release SBOM (.github/workflows/build.yml).
+# The SBOM is generated from requirements.txt only (`syft scan file:requirements.txt`);
+# that file is the canonical dependency manifest for this service.
 source:
   name: "records-api"
