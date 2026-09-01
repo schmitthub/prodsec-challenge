@@ -9,6 +9,9 @@ name: security
 #     scale rules may use since 1.72. Everything (all severities, full history
 #     on main) is uploaded to Code scanning as SARIF so WARNING/MEDIUM and
 #     INFO/LOW show up as annotations and alerts without blocking merges.
+#   - Bandit: same shape as Semgrep — full scan → SARIF (category bandit); on
+#     PRs the gate diffs against a scan of the base commit (bandit -b) and only
+#     new HIGH-severity findings fail. main: upload only.
 #   - Gitleaks: any new secret fails; accepted historical findings live in the
 #     committed baseline (gitleaks-report.json), custom rules in .gitleaks.toml.
 #   - Container image (image.yml): built once per commit into a docker-archive
@@ -122,6 +125,55 @@ jobs:
                     "positive with an inline `# nosemgrep: <rule-id>` comment.")
               sys.exit(1)
           PY
+
+  bandit:
+    name: Bandit SAST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    env:
+      # Must match the bandit rev in .pre-commit-config.yaml.
+      BANDIT_VERSION: 1.9.4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Install bandit
+        run: python -m pip install "bandit[toml,sarif]==${BANDIT_VERSION}"
+
+      - name: Bandit scan
+        # Full tree, every severity, never fails: this is the Code scanning feed.
+        run: bandit -c pyproject.toml -r . -f sarif -o bandit.sarif --exit-zero
+
+      - name: Upload Bandit SARIF
+        if: always() && hashFiles('bandit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
+      - name: Severity gate (new HIGH findings block, lower severities annotate)
+        if: github.event_name == 'pull_request'
+        # bandit -b compares against a JSON report of the base commit. Filenames
+        # must match, so the base is scanned from inside its own tree with -r .
+        run: |
+          BASE_DIR="$RUNNER_TEMP/bandit-base"
+          mkdir -p "$BASE_DIR"
+          git archive "$BASE_SHA" | tar -x -C "$BASE_DIR"
+          (cd "$BASE_DIR" && bandit -c pyproject.toml -r . -f json -o "$RUNNER_TEMP/bandit-base.json" --exit-zero -q)
+          bandit -c pyproject.toml -r . -b "$RUNNER_TEMP/bandit-base.json" --severity-level high
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
   gitleaks:
     name: Gitleaks secrets

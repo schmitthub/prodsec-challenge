@@ -34,7 +34,9 @@ repos:
   hooks:
     - id: bandit
       additional_dependencies: ["bandit[toml]"]   # reads [tool.bandit] from pyproject.toml
-      args: ["-c", "pyproject.toml"]              # staged .py files on commit; whole tree with --all-files
+      # staged .py files on commit; whole tree with --all-files. --severity-level
+      # high matches the CI gate (lower severities are advisory there too).
+      args: ["-c", "pyproject.toml", "--severity-level", "high"]
 
 - repo: https://github.com/semgrep/pre-commit
   rev: 261e339f3e41e8c36b90e05920bd2793212210e2  # frozen: v1.175.0 (must match semgrep/semgrep image tag in security.yml)
@@ -50,6 +52,10 @@ repos:
         - --config=p/owasp-top-ten
         - --config=.semgrep/
         - --skip-unknown-extensions
+        # Match the CI gate: only ERROR fails. --severity only knows the classic
+        # INFO/WARNING/ERROR scale; CI additionally blocks HIGH/CRITICAL from
+        # rules on the CVSS-style scale, which none of these packs use today.
+        - --severity=ERROR
         - --error
       # Scans the staged files on commit (pre-existing findings in untouched
       # files don't block unrelated commits); `prek run --all-files` = full scan.
@@ -63,6 +69,7 @@ repos:
         - --config=p/github-actions
         - --config=.semgrep/
         - --skip-unknown-extensions
+        - --severity=ERROR
         - --error
 
 - repo: https://github.com/google/osv-scanner
@@ -77,3 +84,13 @@ repos:
       always_run: false
       files: ^uv\.lock$
       args: ["scan", "source", "-L", "uv.lock"]
+
+- repo: local
+  hooks:
+    - id: unittest
+      name: Unit tests
+      # Same command as test.yml, run when app or test code changes.
+      entry: uv run python -m unittest discover -s tests
+      language: system
+      pass_filenames: false
+      files: ^(app|tests)/.*\.py$
