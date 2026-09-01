@@ -2,6 +2,9 @@
 # the lab vendor's credential format (config/dev.py uses it), which the generic
 # high-entropy rules do not catch. Findings that pre-date this config are
 # accepted via the committed baseline (gitleaks-report.json); new occurrences fail.
+# The baseline is stored redacted (regenerate with --redact); every scan that
+# consumes it must also pass --redact, since gitleaks compares Match/Secret
+# against the baseline only when redact is 0.
 title = "records-api"
 
 [extend]

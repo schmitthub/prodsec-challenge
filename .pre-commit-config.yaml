@@ -24,7 +24,10 @@ repos:
   rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1 (matches GITLEAKS_VERSION in security.yml)
   hooks:
     - id: gitleaks
-      args: [--baseline-path, gitleaks-report.json]
+      # --redact is load-bearing: the baseline is stored redacted, and gitleaks only
+      # skips the Match/Secret comparison against it when redact > 0 (upstream hook
+      # entry already passes it; repeated here so a hook-entry change can't drop it).
+      args: [--redact, --baseline-path, gitleaks-report.json]
 
 - repo: https://github.com/PyCQA/bandit
   rev: 92ae8b82fb422a639f0ed8d99e96cea769594e08  # frozen: 1.9.4
