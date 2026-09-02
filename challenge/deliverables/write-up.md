@@ -24,3 +24,38 @@
 | Secret import gate ([fixture_secrets.py:3](../../helpers/fixture_secrets.py#L3)) | Informational | Unused test-only defensive guard. Its location is a code-organization concern, not an exploitable production vulnerability. |
 | `FIXTURE_JWT_SECRET` ([fixture_secrets.py:7](../../helpers/fixture_secrets.py#L7)) | False positive | Clearly non-production test value, never imported by the app or tests. |
 | Non-constant-time password compare ([login.py:18](../../app/routes/login.py#L18)) | Informational | A Python string-comparison timing difference is not practically exploitable over the network, and both failure branches return the same 401 response. |
+
+## Pipline Overview
+
+The pipeline has local and remote variants. In practice I have experienced that developers greatly appreciate and achieve higher adoption, enthusiasm, and fix velocity when they can integrate the same or similar tooling into their local workflows. They are already running local toolchains for linting, testing, and static analysis, so adding security checks to this workflow minimizes context switching and encourages early detection and remediation of issues. The remote pipeline serves as a centralized enforcement and verification mechanism, ensuring consistency and catching any issues that might have been missed locally. The local pipeline is opt in only if they install `prek` or `pre-commit` and the git hooks. Local also has a convenience script for `prek` users to generate sarif files in `.sarif/` which most IDEs and sarif plugins will automatically pickup to give syntax highlighting and inline feedback for security issues. Some of what I did is duplicated between github
+
+The stack contains:
+
+- semgrep for static analysis
+- bandit for static analysis
+- osv-scanner for python dependency and container vulnerability scanning
+- gitleaks for secret detection
+- codeql runs in CI as well, custom configuration committed for tuning analysis behavior
+- Tag for release workflow (git trunk, for a gitflow or other strat this would be adapted) that uses syft and cosign to generate signed SBOMs and release artifacts. I also included github attestations for SLSLA 3-esque attestation. Build provenance is important for supply chain security. CD gates can enforce verification of these artifacts before deployment and ensure the build artifacts came from the CI environment instead of being circumvented by a malicious actor (axios is a recent example of what this could have mitigated)
+- Github Advanced Security secrets push rejection
+- Dependabot for automated dependency updates with custom configuration file committed for tuning dependency update behavior. Opens PRs for python, docker, and GitHub Actions workflows.
+- Immutable tagging
+- Tag and branch rulesets to require reviewers, commit signing, and control merge strategies included
+- Git copilot code review instructions
+- A harness agnostic loose agent skill for tailored security reviews
+
+### Pipeline Gaps
+
+- The pipeline is intentionally stacked with different static analysis tools since they can all shine in different areas and offer complementary coverage, reducing the likelihood of missing security issues. But static analysis is a labor of love and can't know intent. So the intent is not to exhaust, its to provide a team with options
+- The SCA tooling cannot detect reachability, but some enterprise solutions do couple their SCA with static analysis to achieve this
+
+## Next Steps
+
+The project is not a matured python or FastAPI project.
+
+- Needs a real DB backend
+- Needs to use pytest with fixtures, mocks, and generators for more robust testing
+- Needs to adopt a modern python package manager so that a lockfile can be persisted for deterministic builds and a dependency graph for scanners, I took the liberty of adding `uv`  already but persisted `requirement.txt`.
+- For better broken access control detection using scope deps (e.g. `Depends(authorize_record)` or a role dep) is a better way to describe intent with self documenting code
+- All secrets and configs need to be centeralized and env var backed. I like `pydantic-settings` it pairs nicely with FastAPI, but `python-dotenv` is a start.
+- Auth needs to be decoupled from the application and operate as a resource server. The JWT implementation will then need to be more robust and include properties like `aud`, `iss`, `resource` to ensure proper validation and security.

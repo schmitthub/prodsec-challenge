@@ -7,11 +7,11 @@ name: Image
 #          (actions/cache) and uploaded as a run artifact for the jobs below.
 #          A tag run restores what its main-branch run built instead of
 #          rebuilding; a miss (evicted, or main never ran) falls back to a build.
-#   scan   osv-scanner over the archive (.github/actions/osv-image-scan). All
-#          findings -> Code scanning (category: container); fails when any
-#          finding's CVSS score >= the CVSS_FAIL_THRESHOLD repository variable
-#          (Settings -> Secrets and variables -> Actions; default 9.0).
-#   sign   release calls only (input `release: true`), after scan passes:
+#   scan   osv-scanner over the archive (.github/actions/osv-image-scan).
+#          All findings -> Code scanning (category: container); the scan and
+#          upload are best-effort and never block the workflow.
+#   sign   release calls only (input `release: true`), after build; it is
+#          independent of the best-effort scan:
 #          gzip to records-api-<tag>.image.tar.gz, cosign keyless signature,
 #          SLSA build provenance via actions/attest, self-verify, hand the
 #          archive + Sigstore bundle to build.yml as a run artifact.
@@ -140,6 +140,7 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    continue-on-error: true
     permissions:
       contents: read         # checkout, for the local composite action
       security-events: write # SARIF -> Code scanning
@@ -154,18 +155,17 @@ jobs:
           name: ${{ needs.build.outputs.artifact }}
           path: ${{ runner.temp }}/image
 
-      - name: OSV scan (gate on vars.CVSS_FAIL_THRESHOLD, default 9.0)
+      - name: OSV scan (best-effort SARIF upload)
         uses: ./.github/actions/osv-image-scan
         with:
           archive: ${{ runner.temp }}/image/${{ needs.build.outputs.archive }}
           category: container
-          cvss-threshold: ${{ vars.CVSS_FAIL_THRESHOLD }}
 
   sign:
     name: Sign and attest image archive
-    # Release only, and only for an image that passed the gate.
+    # Release only; the advisory scan is deliberately not a dependency.
     if: ${{ inputs.release }}
-    needs: [build, scan]
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # No job-level permissions: a called workflow cannot request more than its

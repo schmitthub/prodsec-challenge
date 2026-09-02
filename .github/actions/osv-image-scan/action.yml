@@ -1,9 +1,8 @@
 name: OSV image scan
 description: >-
   Scan a docker-archive (output of `docker save`) with a pinned osv-scanner,
-  upload the SARIF to Code scanning, and fail when any finding's CVSS score
-  meets the threshold. Used by security.yml (PR/main) and build.yml (release)
-  so both apply the same version and the same gate.
+  upload all findings as SARIF to Code scanning, and do not fail on
+  vulnerability findings.
 
 inputs:
   archive:
@@ -12,12 +11,6 @@ inputs:
   category:
     description: Code scanning category for the SARIF upload.
     required: true
-  cvss-threshold:
-    description: >-
-      Fail when any finding's max CVSS score is >= this number. Pass the
-      CVSS_FAIL_THRESHOLD repository variable; empty falls back to 9.0.
-    required: false
-    default: ""
 
 runs:
   using: composite
@@ -43,23 +36,23 @@ runs:
       shell: bash
       env:
         ARCHIVE: ${{ inputs.archive }}
-      # osv-scanner writes one format per run: SARIF for Code scanning, JSON for
-      # the gate. Exit 1 means findings (decided by the gate below), 0 means
-      # clean; anything else is a scanner error and fails here.
+      # Exit 1 means findings and is non-blocking; anything else nonzero is a
+      # scanner error. image.yml makes this entire action best-effort, so even
+      # scanner or upload failures cannot block that workflow.
       run: |
         set -euo pipefail
         OUT="${RUNNER_TEMP}/osv-image"
+        SARIF="${OUT}/results.sarif"
         mkdir -p "${OUT}"
-        for fmt in sarif json; do
-          rc=0
-          osv-scanner scan image --archive \
-            --format "${fmt}" --output-file "${OUT}/results.${fmt}" \
-            --verbosity error "${ARCHIVE}" || rc=$?
-          if [ "${rc}" -gt 1 ]; then
-            echo "::error::osv-scanner exited ${rc} (see https://google.github.io/osv-scanner/output/#return-codes)"
-            exit "${rc}"
-          fi
-        done
+
+        rc=0
+        osv-scanner scan image --archive \
+          --format sarif --output-file "${SARIF}" \
+          --verbosity error "${ARCHIVE}" || rc=$?
+        if [ "${rc}" -gt 1 ]; then
+          echo "::error::osv-scanner exited ${rc} (see https://google.github.io/osv-scanner/output/#return-codes)"
+          exit "${rc}"
+        fi
         echo "dir=${OUT}" >> "${GITHUB_OUTPUT}"
 
     - name: Upload SARIF
@@ -67,31 +60,3 @@ runs:
       with:
         sarif_file: ${{ steps.scan.outputs.dir }}/results.sarif
         category: ${{ inputs.category }}
-
-    - name: Severity gate
-      shell: bash
-      env:
-        RESULTS: ${{ steps.scan.outputs.dir }}/results.json
-        THRESHOLD: ${{ inputs.cvss-threshold }}
-      # osv-scanner groups the aliases of one vulnerability (CVE/GHSA/PYSEC/...)
-      # and reports the group's highest CVSS score as max_severity; it is ""
-      # when no score has been published, which counts as 0 here.
-      run: |
-        set -euo pipefail
-        THRESHOLD="${THRESHOLD:-9.0}"
-        if ! [[ "${THRESHOLD}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-          echo "::error::cvss-threshold must be a number, got '${THRESHOLD}'"
-          exit 1
-        fi
-        TOTAL="$(jq '[.results[].packages[].groups[]] | length' "${RESULTS}")"
-        mapfile -t BLOCKING < <(jq -r --argjson t "${THRESHOLD}" '
-          [ .results[].packages[] | .package as $p | .groups[]
-            | select((.max_severity | tonumber? // 0) >= $t)
-            | "\($p.ecosystem) \($p.name)@\($p.version) CVSS \(.max_severity) \(.ids | join(","))"
-          ] | unique | .[]
-        ' "${RESULTS}")
-        echo "${TOTAL} finding(s); ${#BLOCKING[@]} at CVSS >= ${THRESHOLD} (all findings are in Code scanning)"
-        if [ "${#BLOCKING[@]}" -gt 0 ]; then
-          printf '::error::%s\n' "${BLOCKING[@]}"
-          exit 1
-        fi

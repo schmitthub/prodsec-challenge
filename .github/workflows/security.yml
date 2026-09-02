@@ -16,10 +16,10 @@ name: security
 #     committed baseline (gitleaks-report.json), custom rules in .gitleaks.toml.
 #   - Container image (image.yml): built once per commit into a docker-archive
 #     (cached by commit), scanned by osv-scanner (.github/actions/osv-image-scan).
-#     All findings → Code scanning; the scan job fails when any finding's CVSS
-#     score >= the CVSS_FAIL_THRESHOLD repository variable (Settings → Secrets
-#     and variables → Actions; default 9.0). release.yml runs the same workflow
-#     with `release: true`, which adds the sign job after the scan.
+#     All findings → Code scanning. The scan and upload are best-effort and do
+#     not block on vulnerabilities, scanner errors, or upload errors. release.yml
+#     runs the same workflow with `release: true`; signing depends on the build,
+#     not the advisory scan.
 #   - dependency-review (PRs): diffs the dependency graph against the base and
 #     fails on added/changed dependencies with High+ advisories. Known vulns in
 #     pins already on main surface through the image scan and Dependabot alerts,
