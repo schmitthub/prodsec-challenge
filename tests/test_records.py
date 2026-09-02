@@ -43,7 +43,8 @@ class RecordsApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["record_id"], "rec_alice_001")
 
-    # Security tests for access control and authorization
+    # Access-control regression test. Production coverage should use generated users,
+    # records, and roles; this fixture-based test demonstrates the control's intent.
     def test_member_cannot_access_others_records(self):
         token = login("alice@example.test", "alice-password")
 
