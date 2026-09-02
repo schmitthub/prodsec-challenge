@@ -1,0 +1,1 @@
+../../.agents/skills/sec-review/reviewers/supply-chain-ci.md

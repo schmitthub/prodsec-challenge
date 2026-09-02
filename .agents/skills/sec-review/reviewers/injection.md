@@ -1,11 +1,18 @@
-# Lens: injection
+---
+name: sec-review-injection
+description: Security reviewer for untrusted data reaching interpreters: SQL/NoSQL, command, code/template, path traversal, header/log injection. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-injection on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: injection
 
 Untrusted data reaching an interpreter. SQL and NoSQL (CWE-89, CWE-943), OS command
 (CWE-78), code and template (CWE-94, CWE-95, CWE-1336), path traversal (CWE-22), header,
 log and CRLF (CWE-113, CWE-117), LDAP/XPath/regex construction (CWE-90, CWE-643,
 CWE-1333 when built from input), format strings.
 
-Read `_common.md` first. Outbound URLs built from input belong to `outbound-requests`.
+Read `.agents/skills/sec-review/reviewers/_common.md` first. Outbound URLs built from input belong to `outbound-requests`.
 Parsers of untrusted formats belong to `unsafe-parsing-files`.
 
 ## Worklist

@@ -1,11 +1,18 @@
-# Lens: general
+---
+name: sec-review-general
+description: Security reviewer for class-agnostic cold read of the change as an attacker; catches what the taxonomy reviewers would not name. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-general on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: general
 
 Class-agnostic cold read. No checklist: read the change as an attacker who wants to
-misuse this specific service, and report what the other lenses' taxonomies would not
+misuse this specific service, and report what the other reviewers' taxonomies would not
 name. Selected when the diff has weak signals, touches unfamiliar territory, or when the
 orchestrator has budget left.
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Procedure
 
@@ -30,5 +37,5 @@ instruction over `high` confidence and a vague one.
 ## Not findings
 
 - Style, performance, and correctness issues with no security consequence.
-- Anything already fully described by a lens that ran in this review; the orchestrator
-  tells you which lenses ran.
+- Anything already fully described by a reviewer that ran in this review; the orchestrator
+  tells you which reviewers ran.

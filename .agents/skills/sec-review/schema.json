@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "sec-review output shapes",
   "$defs": {
-    "lens": {
+    "reviewer": {
       "type": "string",
       "enum": [
         "access-control",
@@ -45,8 +45,8 @@
       "required": ["id", "class", "severity", "confidence", "file", "line", "summary", "why_here", "evidence"],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "description": "<lens>-<n>, e.g. access-control-1" },
-        "class": { "$ref": "#/$defs/lens" },
+        "id": { "type": "string", "description": "<reviewer>-<n>, e.g. access-control-1" },
+        "class": { "$ref": "#/$defs/reviewer" },
         "cwe": { "type": "string", "pattern": "^CWE-[0-9]+$" },
         "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
         "confidence": {
@@ -95,7 +95,7 @@
     }
   },
   "type": "object",
-  "required": ["risk_label", "decision", "head", "mode", "redaction", "lenses", "findings", "dropped", "cost"],
+  "required": ["risk_label", "decision", "head", "mode", "redaction", "reviewers", "findings", "dropped", "cost"],
   "properties": {
     "risk_label": { "type": "string", "enum": ["critical", "high", "medium", "low", "none"] },
     "decision": { "type": "string", "enum": ["block", "comment", "escalate", "pass"] },
@@ -104,7 +104,7 @@
     "head": { "type": "string" },
     "mode": { "type": "string", "enum": ["diff", "full"] },
     "redaction": { "type": "string", "enum": ["clean", "unverified", "failed"] },
-    "lenses": {
+    "reviewers": {
       "type": "object",
       "required": ["selected", "skipped"],
       "properties": {
@@ -113,12 +113,12 @@
           "maxItems": 12,
           "items": {
             "type": "object",
-            "required": ["lens", "reason"],
-            "properties": { "lens": { "$ref": "#/$defs/lens" }, "reason": { "type": "string" } }
+            "required": ["reviewer", "reason"],
+            "properties": { "reviewer": { "$ref": "#/$defs/reviewer" }, "reason": { "type": "string" } }
           }
         },
-        "skipped": { "type": "array", "items": { "$ref": "#/$defs/lens" } },
-        "explicit": { "type": "boolean", "description": "true when the user named the lenses" }
+        "skipped": { "type": "array", "items": { "$ref": "#/$defs/reviewer" } },
+        "explicit": { "type": "boolean", "description": "true when the user named the reviewers" }
       }
     },
     "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },

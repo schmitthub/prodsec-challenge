@@ -1,4 +1,11 @@
-# Lens: outbound-requests
+---
+name: sec-review-outbound-requests
+description: Security reviewer for requests the service makes: SSRF, open redirect, unverified webhooks/callbacks, upstream response reflection, missing timeouts. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-outbound-requests on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: outbound-requests
 
 Requests the service makes to other systems and how it treats what comes back.
 Server-side request forgery (CWE-918), open redirect (CWE-601), unverified third-party
@@ -6,7 +13,7 @@ input such as webhooks and callbacks (CWE-345, CWE-347), response reflection, mi
 timeouts and size limits on outbound calls (CWE-400), credential leakage to third parties
 (CWE-522).
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 

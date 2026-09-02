@@ -1,11 +1,18 @@
-# Lens: supply-chain-ci
+---
+name: sec-review-supply-chain-ci
+description: Security reviewer for pipeline and artifact: CI expression injection, permissions, unpinned actions/images, lockfile drift, container hardening, artifact identity, gate suppression. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-supply-chain-ci on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: supply-chain-ci
 
 The pipeline and the artifact. CI expression injection (CWE-94), over-broad permissions
 (CWE-250), unpinned or mutable dependencies and actions (CWE-829, CWE-1104), dependency
 and lockfile hygiene (CWE-1395), container hardening (CWE-250, CWE-1188), artifact
 integrity and provenance (CWE-345, CWE-494), scanner and gate suppression.
 
-Read `_common.md` first, then `repo-conventions.md`: it states the pin style, baseline
+Read `.agents/skills/sec-review/reviewers/_common.md` first, then `repo-conventions.md`: it states the pin style, baseline
 handling, policy-exempt files and the release topology this repo commits to. Hold the
 diff to those; do not invent stricter ones.
 

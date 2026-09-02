@@ -1,11 +1,18 @@
-# Lens: authentication
+---
+name: sec-review-authentication
+description: Security reviewer for identity and session flaws: missing auth on routes, token/session validation, password storage and comparison, enumeration and brute force. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-authentication on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: authentication
 
 Identity establishment and session state. Missing authentication on a protected surface
 (CWE-306), token and session validation (CWE-287, CWE-347, CWE-613), password storage and
 comparison (CWE-256, CWE-916, CWE-208), account enumeration and brute force (CWE-307),
 credential handling in transit and at rest.
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 

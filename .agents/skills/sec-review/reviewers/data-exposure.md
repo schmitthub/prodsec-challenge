@@ -1,11 +1,18 @@
-# Lens: data-exposure
+---
+name: sec-review-data-exposure
+description: Security reviewer for information leaks: exception details, over-broad responses, sensitive data in logs, debug/docs surfaces, existence oracles. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-data-exposure on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: data-exposure
 
 Information reaching the wrong party. Error details and stack traces (CWE-209, CWE-497),
 over-broad responses and serialisation (CWE-200, CWE-359), sensitive data in logs (CWE-532),
 debug and introspection surfaces (CWE-489), behavioural oracles (CWE-204), sensitive data
 cached or persisted where it should not be (CWE-524, CWE-312).
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 

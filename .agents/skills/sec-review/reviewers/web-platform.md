@@ -1,4 +1,11 @@
-# Lens: web-platform
+---
+name: sec-review-web-platform
+description: Security reviewer for browser/HTTP-layer controls: CORS, CSRF, cookies, security headers, host header trust, caching, XSS in rendered HTML. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-web-platform on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: web-platform
 
 Browser-facing and HTTP-layer controls. Cross-origin resource sharing (CWE-942), cross-site
 request forgery (CWE-352), cookie attributes (CWE-614, CWE-1004), security headers and
@@ -6,7 +13,7 @@ clickjacking (CWE-1021), host header and URL handling (CWE-644), HTTP method and
 handling, caching of sensitive responses (CWE-525), cross-site scripting where the service
 renders HTML (CWE-79).
 
-Read `_common.md` first. Only relevant when the service is reachable from a browser or
+Read `.agents/skills/sec-review/reviewers/_common.md` first. Only relevant when the service is reachable from a browser or
 sets cookies; if `auth-model.md` says it is bearer-token only and never renders HTML, most
 rows become `info`.
 

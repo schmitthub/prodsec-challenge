@@ -1,10 +1,17 @@
-# Lens: access-control
+---
+name: sec-review-access-control
+description: Security reviewer for authorization flaws: IDOR, missing object/function-level checks, privilege escalation, mass assignment, tenant isolation. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-access-control on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: access-control
 
 Authorization. Missing object-level or function-level checks (CWE-862, CWE-863), insecure
 direct object reference (CWE-639), privilege escalation (CWE-269), mass assignment
 (CWE-915), tenant isolation, authorization decided from client-controlled data.
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 

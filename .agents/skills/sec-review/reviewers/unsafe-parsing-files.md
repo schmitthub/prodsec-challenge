@@ -1,4 +1,11 @@
-# Lens: unsafe-parsing-files
+---
+name: sec-review-unsafe-parsing-files
+description: Security reviewer for untrusted formats and files: deserialization, XXE, archive extraction, uploads, temp files, symlinks. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-unsafe-parsing-files on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: unsafe-parsing-files
 
 Parsing untrusted formats and handling files. Deserialization (CWE-502), XML external
 entities and expansion (CWE-611, CWE-776), YAML and pickle loaders, unsafe archive
@@ -6,7 +13,7 @@ extraction (CWE-22 via zip slip), uploads without type, size or name constraints
 (CWE-434), temporary files and predictable paths (CWE-377, CWE-379), symlink following
 (CWE-59), content sniffing.
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 

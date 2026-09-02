@@ -6,15 +6,15 @@ prompts must not be tuned toward these cases; a miss is recorded below, not patc
 ## How to run an eval
 
 1. `uv run python .agents/skills/sec-review/scripts/context_pack.py --full`
-2. Run the skill with the lenses under test named explicitly (see `SKILL.md`,
-   "Arguments"). Naming lenses is the only way past the five-lens cap, and it is a
+2. Run the skill with the reviewers under test named explicitly (see `SKILL.md`,
+   "Arguments"). Naming reviewers is the only way past the five-reviewer cap, and it is a
    deliberate, costed choice.
 3. Score `result.json` against the tables below; append a row to "Run log".
 
 ## Seeded cases (expected detections)
 
 These are the known defects in the tree (`context/baseline.md` mirrors them for the
-verifier). Expected class is the lens that should own the finding.
+verifier). Expected class is the reviewer that should own the finding.
 
 | id | class | where | expected severity | deterministic evidence available |
 |---|---|---|---|---|
@@ -46,7 +46,7 @@ verifier). Expected class is the lens that should own the finding.
 ## Broken-access-control variants (unseeded)
 
 Apply each to a throwaway branch, run diff mode, record whether `access-control` (or any
-lens) catches it. This is the generalisation check: a reviewer that only finds S1 is a
+reviewer) catches it. This is the generalisation check: a reviewer that only finds S1 is a
 regression test, not a reviewer.
 
 | id | variant | expected |
@@ -68,7 +68,7 @@ regression test, not a reviewer.
   survived
 - precision of `block`: blocks a human agreed with / all blocks
 - verifier kill count by `false_positive_kind`
-- lenses selected and why; whether the cap was hit
+- reviewers selected and why; whether the cap was hit
 - subagents spawned (reviewers + verifiers) and approximate tokens
 - wall time
 - engineering feedback: for each reported finding, disposition from the code owner
@@ -76,7 +76,7 @@ regression test, not a reviewer.
 
 ## Run log
 
-| date | mode | lenses | hits/expected | misses | FPs | blocks (agreed) | subagents | approx tokens | notes |
+| date | mode | reviewers | hits/expected | misses | FPs | blocks (agreed) | subagents | approx tokens | notes |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-09-02 | full | all (first design) | 11/11 | none | 0 listed | 4 (n/a) | 26 | ~1.9M | pre-redesign; per-finding verifiers; cost unacceptable |
 

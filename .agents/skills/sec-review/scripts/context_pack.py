@@ -53,9 +53,9 @@ FULL_SCOPE = [
     ".syft.yaml",
 ]
 
-# Selection signals per lens. `paths` match file paths (weight 3 per file); `content`
+# Selection signals per reviewer. `paths` match file paths (weight 3 per file); `content`
 # matches added lines (diff mode) or file lines (full mode), weight 1 per line. The
-# orchestrator ranks lenses by score and picks at most five; `general` has no
+# orchestrator ranks reviewers by score and picks at most five; `general` has no
 # signals and is chosen on judgement.
 SIGNALS: dict[str, dict[str, list[str]]] = {
     "access-control": {
@@ -162,7 +162,7 @@ SIGNALS: dict[str, dict[str, list[str]]] = {
         ],
     },
 }
-LENSES = [*SIGNALS, "general"]
+REVIEWERS = [*SIGNALS, "general"]
 
 
 def git(*args: str, check: bool = True) -> str:
@@ -325,7 +325,7 @@ def scan_lines(
 def compute_signals(mode: str, out: Path, unredacted: list[str]) -> dict:
     rows = scan_lines(mode, out, unredacted)
     result: dict[str, dict] = {}
-    for lens, spec in SIGNALS.items():
+    for reviewer, spec in SIGNALS.items():
         path_hits = [
             p for p in unredacted if any(re.search(rx, p) for rx in spec["paths"])
         ]
@@ -335,7 +335,7 @@ def compute_signals(mode: str, out: Path, unredacted: list[str]) -> dict:
                 if re.search(rx, text):
                     content_hits.append(f"{file}:{line}: {text.strip()[:SNIPPET]}")
                     break
-        result[lens] = {
+        result[reviewer] = {
             "score": 3 * len(path_hits) + len(content_hits),
             "path_hits": path_hits,
             "content_hits": content_hits[:25],
@@ -343,7 +343,10 @@ def compute_signals(mode: str, out: Path, unredacted: list[str]) -> dict:
         }
     result["general"] = {"score": None, "note": "no signals; chosen on judgement"}
     ranked = sorted(SIGNALS, key=lambda k: -result[k]["score"])
-    return {"ranked": [k for k in ranked if result[k]["score"] > 0], "lenses": result}
+    return {
+        "ranked": [k for k in ranked if result[k]["score"] > 0],
+        "reviewers": result,
+    }
 
 
 def find_gitleaks() -> str | None:
@@ -422,7 +425,7 @@ def write_manifest(
     branch = git("branch", "--show-current", check=False).strip() or "detached"
     ranked = signals["ranked"]
     top = (
-        ", ".join(f"{k} ({signals['lenses'][k]['score']})" for k in ranked[:8])
+        ", ".join(f"{k} ({signals['reviewers'][k]['score']})" for k in ranked[:8])
         or "none"
     )
     lines = [
@@ -436,7 +439,7 @@ def write_manifest(
         f"- redaction: **{redaction}**",
         f"- route map: {route_status}",
         f"- scanner findings: {findings_status}",
-        f"- lens signals (score): {top}",
+        f"- reviewer signals (score): {top}",
         "",
         "## Redacted paths in scope (review manually, contents withheld)",
         *([f"- {p}" for p in redacted] or ["- none"]),
@@ -451,7 +454,7 @@ def write_manifest(
         "- auth-model.md, repo-conventions.md",
         "- baseline.md (verifier only)",
         "- findings.json (findings.all.json = whole tree)",
-        "- signals.json (lens selection input)",
+        "- signals.json (reviewer selection input)",
         "- codeowners.txt",
         "",
     ]

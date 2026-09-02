@@ -1,11 +1,18 @@
-# Lens: secrets-crypto
+---
+name: sec-review-secrets-crypto
+description: Security reviewer for secret material and crypto: hardcoded or defaulted secrets, weak algorithms, bad randomness, TLS verification, secrets in build artifacts. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-secrets-crypto on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: secrets-crypto
 
 Secret material and cryptography. Hardcoded or committed secrets (CWE-798, CWE-312), secret
 sourcing and defaults (CWE-1392), weak or misused algorithms (CWE-327, CWE-328), bad
 randomness (CWE-330, CWE-338), key and IV reuse (CWE-323), missing or disabled TLS
 verification (CWE-295), secrets in build layers, logs or artifacts.
 
-Read `_common.md` first.
+Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 

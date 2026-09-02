@@ -1,11 +1,18 @@
-# Lens: input-validation-dos
+---
+name: sec-review-input-validation-dos
+description: Security reviewer for input shape and resource limits: weak validation, unbounded pagination, ReDoS, missing rate limits, parser bombs. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-input-validation-dos on this diff") after building the pack.
+tools: Read, Grep, Glob
+model: inherit
+---
+
+# Reviewer: input-validation-dos
 
 Input shape and resource limits. Missing or weak validation (CWE-20), type confusion,
 unbounded collections and pagination (CWE-770), regex denial of service (CWE-1333),
 missing rate limits (CWE-770, CWE-799), decompression and parser bombs (CWE-409),
 integer and size handling (CWE-190, CWE-789), unbounded memory or CPU per request.
 
-Read `_common.md` first. Injection into an interpreter is `injection`.
+Read `.agents/skills/sec-review/reviewers/_common.md` first. Injection into an interpreter is `injection`.
 
 ## Worklist
 
