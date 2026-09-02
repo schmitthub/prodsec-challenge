@@ -30,7 +30,8 @@
 The pipeline has local and remote variants. In practice I have experienced that developers greatly appreciate and achieve higher adoption, enthusiasm, and fix velocity when they can integrate the same or similar tooling into their local workflows. They are already running local toolchains for linting, testing, and static analysis, so adding security checks to this workflow minimizes context switching and encourages early detection and remediation of issues. The remote pipeline serves as a centralized enforcement and verification mechanism, ensuring consistency and catching any issues that might have been missed locally. The local pipeline is opt in only if they install `prek` or `pre-commit` and the git hooks. Local also has a convenience script for `prek` users to generate sarif files in `.sarif/` which most IDEs and sarif plugins will automatically pickup to give syntax highlighting and inline feedback for security issues. Some of what I did is duplicated between github
 
 The stack contains:
-
+# TODO: this needs to be reduced to a concrete inventory of what can be detected
+- Cross user test invariant
 - semgrep for static analysis
 - bandit for static analysis
 - osv-scanner for python dependency and container vulnerability scanning
