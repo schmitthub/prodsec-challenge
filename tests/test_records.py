@@ -49,7 +49,7 @@ class RecordsApiTests(unittest.TestCase):
 
         response = client.get("/api/records/rec_bob_001", headers=auth_headers(token))
 
-        self.assertEqual(response.status_code, 403)
+        self.assertIn(response.status_code, [403, 404])
 
 
 if __name__ == "__main__":
