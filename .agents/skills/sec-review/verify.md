@@ -1,11 +1,15 @@
 # Verifier
 
-You receive **one** finding (a `finding` object from `schema.json`) and the context pack
-path. Your job is to kill it. If you can't, you make it stronger by producing deterministic
-evidence. You never soften a finding to be polite and never keep one because it "sounds
-plausible".
+You receive the findings of **one class** (an array of `finding` objects from
+`schema.json`, usually 1–6) and the context pack path. Your job is to kill each one. If
+you can't, you make it stronger by producing deterministic evidence. You never soften a
+finding to be polite and never keep one because it "sounds plausible".
 
-Read `MANIFEST.md` and `auth-model.md` first, then only the files the finding names.
+Read `MANIFEST.md`, `auth-model.md` and `repo-conventions.md` first, then only the files
+the findings name. Work through the findings in order; reuse setup (login, TestClient,
+local server) across them — that is why you get the whole class. Judge each finding on
+its own; if two findings describe the same defect from different angles, kill the weaker
+one as `other` with `reason: "duplicate of <id>"`.
 
 ## Kill tests, in order — stop at the first that applies
 
@@ -24,9 +28,11 @@ Read `MANIFEST.md` and `auth-model.md` first, then only the files the finding na
    readable by any authenticated user or by the role that's gated? `intended-shared-resource`.
    If `auth-model.md` is silent, the finding survives at `medium` — the missing declaration
    is the problem.
-6. **Already baselined / accepted.** Is there a triage entry in `challenge/triage.md`, a
-   gitleaks baseline match, or an `osv-scanner.toml` ignore *with a reason*? Survives, but
-   note `already-baselined` in `reason` so the decision step can downgrade to `comment`.
+6. **Already baselined / accepted.** Is there an entry in the triage file named by
+   `repo-conventions.md`, a gitleaks baseline match, or an `osv-scanner.toml` ignore *with
+   a reason*? The finding **survives** (`is_real: true`) with `baselined: true` so the
+   decision step downgrades it to `comment`. Do not use `false_positive_kind` for this —
+   it is not a false positive.
 
 ## If it survives: get deterministic evidence
 
@@ -59,4 +65,5 @@ Only if all four are impossible does `deterministic` stay `false`. Say why.
 - Do not fix the issue, do not suggest code.
 - If the finding is in a redacted path, you cannot verify it: `is_real: true`,
   `deterministic: false`, `reason: "redacted path — manual review"`, `keep`.
-- One finding, one verdict. Return ONLY the `verdict` JSON object.
+- One verdict per finding, same order as received. Return ONLY a JSON array of `verdict`
+  objects.

@@ -96,6 +96,8 @@ def build(app) -> list[dict]:
                 "dependencies": deps,
                 "authenticated": any(d.endswith("get_current_user") for d in deps),
                 "client_supplied_id": client_ids,
+                # collection read driven by query params: must filter by caller
+                "list_route": "GET" in r.methods and not path_p and bool(query_p),
                 "response_model": getattr(
                     getattr(r, "response_model", None), "__name__", None
                 ),
@@ -107,18 +109,19 @@ def build(app) -> list[dict]:
 
 def to_markdown(rows: list[dict]) -> str:
     head = (
-        "| method | path | handler | authn | client_supplied_id | path | query | body | dependencies | response_model |\n"
-        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| method | path | handler | authn | client_supplied_id | list | path | query | body | dependencies | response_model |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|\n"
     )
     lines = []
     for r in rows:
         lines.append(
-            "| {m} | `{p}` | `{h}` | {a} | {cid} | {pp} | {qp} | {bp} | {d} | {rm} |".format(
+            "| {m} | `{p}` | `{h}` | {a} | {cid} | {lr} | {pp} | {qp} | {bp} | {d} | {rm} |".format(
                 m=",".join(r["methods"]),
                 p=r["path"],
                 h=r["location"],
                 a="yes" if r["authenticated"] else "**no**",
                 cid=", ".join(f"`{x}`" for x in r["client_supplied_id"]) or "—",
+                lr="**yes**" if r["list_route"] else "—",
                 pp=", ".join(r["path_params"]) or "—",
                 qp=", ".join(r["query_params"]) or "—",
                 bp=", ".join(r["body_fields"]) or "—",
@@ -129,7 +132,9 @@ def to_markdown(rows: list[dict]) -> str:
     note = (
         "\n\n`client_supplied_id` = any request parameter whose name looks like an identifier "
         "(id/key/uuid/slug/name/path/url). Every row with a value here is the access-control "
-        "reviewer's worklist. `authn` = route depends on `get_current_user`.\n"
+        "reviewer's worklist, as is every row with `list` = yes (a collection read driven by "
+        "query params, which must be filtered to the caller). `authn` = route depends on "
+        "`get_current_user`.\n"
     )
     return "# Route map\n\n" + head + "\n".join(lines) + note
 

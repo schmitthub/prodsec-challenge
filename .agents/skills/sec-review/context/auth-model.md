@@ -8,6 +8,9 @@ code disagrees with this file, that disagreement *is* a finding.
 - `POST /api/login` → HS256 JWT (`app/auth.py: create_access_token`). Claim `sub` = user id.
 - `get_current_user` (`app/auth.py`) is the only authentication dependency. Every route
   except `/health` and `/api/login` takes `Annotated[User, Depends(get_current_user)]`.
+- FastAPI also serves `/docs`, `/redoc`, `/openapi.json` unauthenticated (framework
+  defaults, not in the route map). Known and accepted for a dev service; a reviewer may
+  note it at `low`, not higher.
 - `User` (`app/models.py`) carries `id`, `email`, `role`. Roles: `member`, `staff`.
 - Known weaknesses in the identity layer (seeded, tracked in `challenge/triage.md`): secret is
   hardcoded; `verify_exp` is disabled; passwords stored in plaintext in `app/db.py`.

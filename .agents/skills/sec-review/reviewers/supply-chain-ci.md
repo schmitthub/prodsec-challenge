@@ -15,12 +15,9 @@ release integrity (signing, attestation, immutable tags).
    `.gitleaks.toml`, `osv-scanner.toml`, `.semgrepignore`, `.gitleaksignore`, `scripts/`.
 4. `diff.patch` for those files. On `--full`, read them whole.
 
-Repo conventions you must know (from `AGENTS.md`): actions are SHA-pinned with a version
-comment; tool versions are pinned in two places that must match (`security.yml` /
-`osv-image-scan/action.yml` and `.pre-commit-config.yaml`); `test.yml` is the seeded
-workflow and is intentionally untouched; gitleaks baseline is stored redacted and every
-consumer passes `--redact`; scanner findings are triaged into baselines, never into
-`.gitleaksignore`/`nosemgrep` without a comment.
+Read `repo-conventions.md` in the pack for the conventions this repo holds itself to
+(pin style, baseline handling, policy-exempt files). Hold the diff to those; do not
+invent stricter ones.
 
 ## Look for
 
@@ -75,7 +72,7 @@ count too — run it and record it: `grep -n 'uses:' .github/workflows/*.yml | g
 
 ## Not findings
 
-- `test.yml` being minimal — it's the seeded baseline, out of scope by policy.
+- Files `repo-conventions.md` lists as policy-exempt, for being what they are.
 - SHA-pinned actions whose comment version you can't verify offline — note as `info`, don't
   flag.
 - Suppressions **with** a justification comment that references a triage entry.

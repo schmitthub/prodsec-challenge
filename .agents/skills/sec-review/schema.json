@@ -62,10 +62,15 @@
       "properties": {
         "finding_id": { "type": "string" },
         "is_real": { "type": "boolean" },
+        "baselined": {
+          "type": "boolean",
+          "description": "true if the finding is already tracked in the repo's triage/baseline (see repo-conventions.md). Real, but downgraded from block to comment."
+        },
         "reason": { "type": "string", "maxLength": 400 },
         "false_positive_kind": {
           "type": "string",
-          "enum": ["control-exists", "unreachable", "test-or-fixture-code", "intended-shared-resource", "already-baselined", "wrong-file-or-line", "other"]
+          "description": "Only when is_real is false",
+          "enum": ["control-exists", "unreachable", "test-or-fixture-code", "intended-shared-resource", "wrong-file-or-line", "other"]
         },
         "evidence": { "$ref": "#/$defs/finding/properties/evidence" },
         "confidence_adjustment": { "type": "string", "enum": ["raise", "keep", "lower"] }

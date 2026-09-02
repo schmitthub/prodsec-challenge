@@ -73,6 +73,7 @@ fi
 
 # --- auth model + owners --------------------------------------------------------
 cp "$skill/context/auth-model.md" "$out/auth-model.md"
+cp "$skill/context/repo-conventions.md" "$out/repo-conventions.md"
 [[ -f .github/CODEOWNERS ]] && cp .github/CODEOWNERS "$out/codeowners.txt" || : > "$out/codeowners.txt"
 
 # --- scanner findings -----------------------------------------------------------
@@ -141,7 +142,7 @@ fi
   echo "- diff.patch — $(grep -c '^diff --git' "$out/diff.patch" || true) files"
   echo "- changed-files.txt — $(wc -l < "$out/changed-files.txt") paths (changed-files.unredacted.txt = what reviewers may read)"
   echo "- route-map.md / route-map.json"
-  echo "- auth-model.md"
+  echo "- auth-model.md, repo-conventions.md"
   echo "- findings.json (findings.all.json = whole tree)"
   echo "- codeowners.txt"
 } > "$out/MANIFEST.md"

@@ -10,9 +10,15 @@ step is a file or a shell command. Works in Claude Code (`.claude/skills/sec-rev
 symlink here), Codex (`.agents/skills/` is read natively), or by hand.
 
 Arguments: `$ARGUMENTS` may be a base ref (`main`, `origin/main`, a SHA), a PR number
-(`#12` → resolve with `gh pr view 12 --json baseRefOid -q .baseRefOid`), or `--full`
-(whole tree, no diff — used for baseline audits and for evaluating the reviewer against
-`eval/cases.md`). Default: merge-base with `origin/main`.
+(`#12` → resolve with `gh pr view 12 --json baseRefOid -q .baseRefOid`), or `--full`.
+Default: merge-base with `origin/main`.
+
+**Cost.** Every reviewer and verifier is a fresh subagent that re-reads the pack. A normal
+PR (2–5 changed files) runs 1–3 reviewers and 1–2 verifiers: roughly 150–300k tokens.
+`--full` is a whole-tree audit that runs every reviewer and verifies every finding — the
+first run on this repo cost ~1.9M tokens. Treat `--full` as eval-only; run it when
+`eval/cases.md` or a reviewer prompt changes, not per PR. Tell the user the mode and the
+expected cost before fanning out.
 
 ## Non-negotiables
 
@@ -46,6 +52,7 @@ Produces `.sec-review/` (gitignored):
 | `changed-files.txt` | paths in the diff (or all tracked `app/ tests/ .github/` on `--full`) | git |
 | `route-map.md` / `route-map.json` | every route: method, path, handler `file:line`, path/query/body params, dependencies, `client_supplied_id` flag | `scripts/route_map.py` (imports `app.main`) |
 | `auth-model.md` | how identity and authorization work in this service, per resource | `context/auth-model.md` (maintained by hand) |
+| `repo-conventions.md` | where triage lives, which files are policy-exempt, pin/baseline conventions | `context/repo-conventions.md` (maintained by hand) |
 | `findings.json` | normalized scanner results `{tool, rule, level, file, line, message}` limited to changed files | `.sarif/*.sarif` from `scripts/sarif-scan.sh` |
 | `codeowners.txt` | for `suggested_owner` | `.github/CODEOWNERS` |
 
@@ -54,21 +61,25 @@ the deterministic evidence tier; without them nothing can block.
 
 ### 2. Fan out reviewers
 
-One reviewer per file in `reviewers/`:
+One reviewer per file in `reviewers/`, **but only those whose scope intersects
+`changed-files.unredacted.txt`**. Skipped reviewers are listed in the report as
+"not run (no files in scope)". `--full` runs all five.
 
-| reviewer | class | why it exists |
+| reviewer | class | runs when the diff touches |
 |---|---|---|
-| `access-control.md` | BAC / IDOR / privilege escalation | the class off-the-shelf scanners miss; the brief's stated recurring risk |
-| `injection.md` | SQLi, command, SSRF, path traversal | taint from request to sink |
-| `authn-secrets.md` | JWT, sessions, secrets, crypto, password handling | identity layer |
-| `data-exposure.md` | error handlers, logging, over-broad responses, debug surfaces | information leaks |
-| `supply-chain-ci.md` | workflows, action pins, permissions, deps, Dockerfile | the pipeline itself |
+| `access-control.md` | BAC / IDOR / privilege escalation | `app/routes/`, `app/auth.py`, `app/db.py`, `app/main.py`, or the route map changed |
+| `injection.md` | SQLi, command, SSRF, path traversal | any `app/**/*.py` |
+| `authn-secrets.md` | JWT, sessions, secrets, crypto, password handling | `app/auth.py`, `app/routes/login.py`, `app/db.py`, `app/models.py`, any redacted path, or a gitleaks/bandit-B105 hit in `findings.json` |
+| `data-exposure.md` | error handlers, logging, over-broad responses, debug surfaces | `app/main.py`, `app/routes/`, `app/models.py`, `Dockerfile` |
+| `supply-chain-ci.md` | workflows, action pins, permissions, deps, Dockerfile | `.github/`, `Dockerfile`, `.dockerignore`, `pyproject.toml`, `uv.lock`, `requirements.txt`, `.pre-commit-config.yaml`, `*.toml`, `.gitleaks*`, `.semgrepignore`, `scripts/` |
 
 Each reviewer gets exactly this prompt (fill the placeholders, nothing else):
 
 ```
 You are the <class> reviewer. Read <skill>/reviewers/<file>.md and follow it exactly.
 Context pack: <abs path to .sec-review/>. Read MANIFEST.md first.
+Read-only. Do NOT execute code, run tests, start servers, or send requests — that is
+the verifier's job. Trace and cite; give the verifier a concrete payload to try.
 Return ONLY a JSON array matching the "finding" definition in <skill>/schema.json.
 Return [] if nothing meets the bar. Do not modify files.
 ```
@@ -81,13 +92,19 @@ Return [] if nothing meets the bar. Do not modify files.
 
 ### 3. Verify
 
-Merge the arrays, dedupe on `(file, line, class)`, keep the higher confidence. Then for
-**each** remaining finding run `verify.md` — one verifier per finding, parallel where
-possible, fresh context. The verifier's job is to kill the finding: prove it's a false
-positive, or produce the deterministic evidence that lets it block. It returns a
-`verdict` object per `schema.json`.
+Merge the arrays, dedupe on `(file, line, class)`, keep the higher confidence. Then run
+`verify.md` — **one verifier per class that produced findings** (so at most five), each
+given that class's full array, fresh context, parallel. A verifier walks its findings in
+order and returns one `verdict` per finding. The verifier's job is to kill each finding:
+prove it's a false positive, or produce the deterministic evidence that lets it block.
 
-Discard `verdict.is_real == false`. Attach `verdict.evidence` to the finding.
+Batching per class is a deliberate cost trade: findings in one class share the same
+files and repro setup, so one context does the work of N. Independence across classes is
+preserved. If a class has more than ~6 findings, split it in two.
+
+Discard `verdict.is_real == false`. Attach `verdict.evidence` to the finding. A verdict
+with `baselined: true` survives but is downgraded from `block` to `comment` in step 4 —
+it is already tracked in the repo's triage, not a regression.
 
 ### 4. Decide
 
@@ -96,8 +113,8 @@ Apply in order; first match wins.
 | condition | decision |
 |---|---|
 | any surviving finding touches `app/auth.py`, exposes a credential, or is a full auth bypass | `escalate` (notify security owner now, also apply the row below) |
-| `severity ∈ {critical, high}` AND `confidence == high` AND `evidence.deterministic` | `block` |
-| `confidence ≥ medium` | `comment` |
+| `severity ∈ {critical, high}` AND `confidence == high` AND `evidence.deterministic` AND NOT `baselined` | `block` |
+| `confidence ≥ medium` (includes baselined findings that would otherwise block — say so in the report) | `comment` |
 | otherwise | drop (log to `.sec-review/dropped.json` for eval) |
 
 `risk_label` is the highest surviving severity, or `none`. `suggested_owner` = CODEOWNERS
@@ -140,6 +157,7 @@ SKILL.md              this
 schema.json           finding / verdict / result shapes
 redact-paths.txt      never enters the pack
 context/auth-model.md maintained description of identity + authz per resource
+context/repo-conventions.md  maintained repo policy: triage location, exempt files, pin conventions
 reviewers/*.md        one per class
 verify.md             adversarial verifier
 eval/cases.md         expected hits and non-hits
