@@ -15,3 +15,4 @@
 ## Agent documentation
 - Every real directory under `app/`, `config/`, `helpers/`, `scripts/`, and `tests/` has a localized `AGENTS.md`; its sibling `CLAUDE.md` is a portable relative symlink to `AGENTS.md`.
 - Keep each guide's direct-file symbol map synchronized when code files or symbols change. Parent guides summarize child directories; each child guide owns its direct files.
+- `.github/instructions/python-security.instructions.md` adds all-Python Copilot review priorities for access control, injection, SSRF, JWTs, disclosure, security logging, and feature-relevant invariant tests; it supplements general review.
