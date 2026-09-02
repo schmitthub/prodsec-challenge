@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: v1-delete-idor
+context:
+  scaffold_script: |
+    set -euo pipefail
+    cd "$(git rev-parse --show-toplevel)"
+    # cases.md V1: a delete route on a tenant-scoped resource with no owner check.
+    # Appended, not patched, so the scaffold does not depend on exact surrounding text.
+    cat >> app/routes/records.py <<'PY'
+
+
+    @router.delete("/records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+    def delete_record(
+        record_id: str,
+        current_user: Annotated[User, Depends(get_current_user)],
+    ):
+        record = db.get_record(record_id)
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+            )
+        db.RECORDS.pop(record_id, None)
+    PY
+    uv sync --quiet

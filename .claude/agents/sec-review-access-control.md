@@ -1,0 +1,1 @@
+../../.agents/skills/sec-review/reviewers/access-control.md

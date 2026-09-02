@@ -24,6 +24,8 @@
 | Secret import gate ([fixture_secrets.py:3](../../helpers/fixture_secrets.py#L3)) | Informational | Unused test-only defensive guard. Its location is a code-organization concern, not an exploitable production vulnerability. |
 | `FIXTURE_JWT_SECRET` ([fixture_secrets.py:7](../../helpers/fixture_secrets.py#L7)) | False positive | Clearly non-production test value, never imported by the app or tests. |
 | Non-constant-time password compare ([login.py:18](../../app/routes/login.py#L18)) | Informational | A Python string-comparison timing difference is not practically exploitable over the network, and both failure branches return the same 401 response. |
+| No throttling or lockout on `POST /api/login` ([login.py:15](../../app/routes/login.py#L15)) | Low, track | Unlimited password guesses return an immediate 401 with no `Retry-After`. Brute-force protection is usually, and appropriately, handled at the edge (WAF, gateway, or ingress rate limiting), so this is not an application defect on its own. Worth tracking because a successful guess yields a token that never expires; application-layer account lockout is the next line of defense if edge controls are absent. |
+| No application logging or monitoring | Low, track | No request, authentication, or authorization events are logged anywhere in the app, and nothing is emitted for the exception handler beyond the response body. Not exploitable, but it means none of the findings above would be detected in production, incident response has nothing to reconstruct from, and the login and search abuse paths are invisible. Will be a pain point for any real deployment. |
 
 ## Pipline Overview
 

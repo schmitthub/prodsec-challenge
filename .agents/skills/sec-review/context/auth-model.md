@@ -12,8 +12,8 @@ code disagrees with this file, that disagreement *is* a finding.
   defaults, not in the route map). Known and accepted for a dev service; a reviewer may
   note it at `low`, not higher.
 - `User` (`app/models.py`) carries `id`, `email`, `role`. Roles: `member`, `staff`.
-- Known weaknesses in the identity layer (seeded, tracked in `challenge/triage.md`): secret is
-  hardcoded; `verify_exp` is disabled; passwords stored in plaintext in `app/db.py`.
+- Known, tracked weaknesses in the identity layer are listed in `baseline.md` (verifier
+  only). Reviewers report what they see; the verifier applies the baseline.
 
 ## Authorization
 

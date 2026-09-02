@@ -138,6 +138,9 @@ security:
           - action: allow
             path: /gitleaks/gitleaks/
           - action: allow
+            path: /golang/go/
+            methods: [GET, POST]
+          - action: allow
             path: /pre-commit/pre-commit-hooks/
           - action: allow
             path: /astral-sh/ruff-pre-commit/
@@ -168,6 +171,59 @@ security:
             path: /anthropics/claude-code/
           - action: allow
             path: /repos/oraios/serena/commits/
+        port: "443"
+        proto: https
+      - action: allow
+        dst: go.dev
+        insecure_skip_tls_verify: false
+        path_default: deny
+        path_rules:
+          - action: allow
+            path: '~/dl/'
+            methods: [GET]
+          - action: allow
+            path: '~/dl/go.*\.linux-arm64\.tar\.gz'
+            methods: [GET, HEAD]
+        port: "443"
+        proto: https
+      - action: allow
+        dst: dl.google.com
+        insecure_skip_tls_verify: false
+        path_default: deny
+        path_rules:
+          - action: allow
+            path: '~/go/go.*\.linux-arm64\.tar\.gz'
+            methods: [GET, HEAD]
+        port: "443"
+        proto: https
+      - action: allow
+        dst: proxy.golang.org
+        insecure_skip_tls_verify: false
+        path_default: deny
+        path_rules:
+          - action: allow
+            path: /
+            methods: [GET, HEAD]
+        port: "443"
+        proto: https
+      - action: allow
+        dst: storage.googleapis.com
+        insecure_skip_tls_verify: false
+        path_default: deny
+        path_rules:
+          - action: allow
+            path: /proxy-golang-org-prod/
+            methods: [GET, HEAD]
+        port: "443"
+        proto: https
+      - action: allow
+        dst: sum.golang.org
+        insecure_skip_tls_verify: false
+        path_default: deny
+        path_rules:
+          - action: allow
+            path: /
+            methods: [GET, HEAD]
         port: "443"
         proto: https
       - action: allow

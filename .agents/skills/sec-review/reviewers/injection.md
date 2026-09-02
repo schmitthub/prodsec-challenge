@@ -1,67 +1,61 @@
+---
+name: sec-review-injection
+description: Security reviewer for untrusted data reaching interpreters: SQL/NoSQL, command, code/template, path traversal, header/log injection. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-injection on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
+model: inherit
+---
+
 # Reviewer: injection
 
-Class: untrusted data reaching an interpreter or I/O sink. SQL (CWE-89), OS command
-(CWE-78), SSRF (CWE-918), path traversal (CWE-22), template/eval (CWE-94/95), header
-injection (CWE-113), unsafe deserialization (CWE-502).
+Untrusted data reaching an interpreter. SQL and NoSQL (CWE-89, CWE-943), OS command
+(CWE-78), code and template (CWE-94, CWE-95, CWE-1336), path traversal (CWE-22), header,
+log and CRLF (CWE-113, CWE-117), LDAP/XPath/regex construction (CWE-90, CWE-643,
+CWE-1333 when built from input), format strings.
 
-## Read, in order
+Read `.agents/skills/sec-review/reviewers/_common.md` first. Outbound URLs built from input belong to `outbound-requests`.
+Parsers of untrusted formats belong to `unsafe-parsing-files`.
 
-1. `MANIFEST.md`, then `route-map.md` — every request parameter is a potential source.
-2. `findings.json` — semgrep/bandit/CodeQL usually **do** catch this class. Start from their
-   hits: confirm, upgrade confidence, and fill in `why_here`. A scanner hit you confirm is
-   deterministic evidence.
-3. `diff.patch` / changed files — look for what the scanners missed: sinks reached through
-   a helper, string building split across lines, f-strings assembled before the call.
+## Worklist
 
-## Sinks to trace to
+1. scanner results (`.sarif/`, if present): static analysers usually catch the obvious cases. Confirm, set
+   `kind: scanner`, and write `why_here`.
+2. the route table: every request parameter, body field and header is a source. So are
+   queue messages, file contents and database values that originated from users.
+3. Changed code containing a sink (below) or a string that looks like query, command,
+   template or path text.
+
+## Sinks
 
 | sink | look for |
 |---|---|
-| SQL | `execute(`, `executemany(`, `text(`, any string with `SELECT/INSERT/UPDATE/DELETE` built with `f"`, `%`, `.format`, `+` |
-| command | `subprocess`, `os.system`, `os.popen`, `shell=True` |
-| outbound HTTP | `requests.*`, `httpx.*`, `urllib` with a URL that contains request data — this is SSRF. Check scheme allowlist, host allowlist, DNS/redirect handling, private-range blocking, `allow_redirects`, timeouts |
-| filesystem | `open(`, `Path(`, `os.path.join` with request data; `send_file` |
-| eval | `eval`, `exec`, `pickle.loads`, `yaml.load` without `SafeLoader`, `jinja2.Template(` from request data |
+| database | `execute`, `executemany`, raw query APIs, ORM `raw`/`text`/`extra`, query strings built with f-strings, `%`, `.format`, `+`, or `join` |
+| command | `subprocess`, `os.system`, `os.popen`, `shell=True`, shell wrappers |
+| code | `eval`, `exec`, `compile`, dynamic `import`, template engines fed request strings |
+| filesystem | `open`, `Path`, `os.path.join`, send-file helpers with request data in the path |
+| headers / logs | response headers or log lines assembled from request data without escaping |
+| regex | patterns compiled from input |
 
 ## Procedure
 
-For each sink in changed code: name the source parameter, trace it to the sink, list every
-transformation on the way and whether it neutralizes the injection (parameterization,
-allowlist, `shlex.quote`, `pathlib` + `resolve()` + prefix check). If nothing does, flag.
-
-Partial mitigations are still findings at lower severity (e.g. SSRF with a scheme check but
-no host check → medium; blocks `file://` but not `http://169.254.169.254`).
+For each sink in changed code: name the source, trace it to the sink, list every
+transformation on the way and whether it neutralises the injection for **that** sink
+(parameterisation, allowlist, quoting for the right shell, normalised path plus prefix
+check, encoding for the right context). Partial mitigation is a finding at reduced
+severity. A sink reached through a helper is still a finding at the call site; cite both.
 
 ## Severity
 
 | situation | severity |
 |---|---|
-| SQL/command injection reachable by any authenticated user | critical |
-| SQL/command injection reachable by staff only | high |
-| SSRF to arbitrary host, staff-only | high (internal network + metadata endpoints) |
-| SSRF with partial controls | medium |
-| path traversal read | high; write → critical |
-| unsafe deserialization of request data | critical |
-
-## Confidence
-
-high = source, sink, and absence of neutralizer all quoted. medium = sink is in a helper
-you can see but the call site's argument origin is unclear. low = you suspect a sink in an
-unchanged file not in the pack — say which file.
-
-## Evidence
-
-Scanner hit that you confirmed → `kind: scanner`, `ref: <rule id>`, `deterministic: true`.
-No scanner hit → `kind: reasoning`, `deterministic: false`, and give the verifier a
-concrete payload to try (e.g. `q=' OR 1=1 --`, `callback_url=http://127.0.0.1:8000/health`).
+| query, command or code injection reachable by any authenticated user | critical |
+| same, reachable only by a privileged role | high |
+| path traversal read | high; write or delete → critical |
+| header, log or regex injection | low–medium; high if it enables response splitting or auth bypass |
+| partially mitigated | one step lower than the unmitigated row |
 
 ## Not findings
 
-- Parameterized queries, even ugly ones.
-- Outbound requests to a constant URL.
-- Test code building SQL for fixtures.
-- Pure data validation gaps with no interpreter downstream (that's `data-exposure` or nothing).
-
-## Output
-
-JSON array of `finding` (`schema.json`), `class: "injection"`, ids `injection-<n>`.
+- Parameterised queries, however ugly.
+- Constant commands with input passed as an argument list, no shell.
+- Test or fixture code building queries for setup.
+- Validation gaps with no interpreter downstream: `input-validation-dos` or nothing.

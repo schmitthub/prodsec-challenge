@@ -2,55 +2,71 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "sec-review output shapes",
   "$defs": {
+    "reviewer": {
+      "type": "string",
+      "enum": [
+        "access-control",
+        "authentication",
+        "secrets-crypto",
+        "injection",
+        "outbound-requests",
+        "data-exposure",
+        "input-validation-dos",
+        "business-logic",
+        "unsafe-parsing-files",
+        "web-platform",
+        "supply-chain-ci",
+        "general"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["deterministic", "sources"],
+      "properties": {
+        "deterministic": {
+          "type": "boolean",
+          "description": "true only if at least one source is a scanner hit, a failing test, or an executed reproduction"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "ref"],
+            "properties": {
+              "kind": { "type": "string", "enum": ["scanner", "test", "reproduction", "reasoning"] },
+              "ref": { "type": "string", "description": "scanner tool/rule id, test name, command run, or the code path traced" }
+            }
+          }
+        }
+      }
+    },
     "finding": {
       "type": "object",
       "required": ["id", "class", "severity", "confidence", "file", "line", "summary", "why_here", "evidence"],
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "description": "<reviewer>-<n>, e.g. access-control-1" },
-        "class": {
-          "type": "string",
-          "enum": ["access-control", "injection", "authn-secrets", "data-exposure", "supply-chain-ci"]
-        },
+        "class": { "$ref": "#/$defs/reviewer" },
         "cwe": { "type": "string", "pattern": "^CWE-[0-9]+$" },
         "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
         "confidence": {
           "type": "string",
           "enum": ["high", "medium", "low"],
-          "description": "high = you can point at the exact source, sink and missing control; medium = pattern matches but a control may exist out of view; low = suspicion"
+          "description": "high = source, sink and missing control all quoted; medium = pattern matches but a control may exist out of view; low = suspicion"
         },
         "file": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 },
         "summary": { "type": "string", "maxLength": 200 },
         "why_here": {
           "type": "string",
-          "description": "Impact in THIS service, referencing auth-model.md / route-map. Not a CWE description."
+          "description": "Impact in THIS service, referencing auth-model.md and the route table. Not a CWE description."
         },
-        "variant_of": {
+        "verifier_instruction": {
           "type": "string",
-          "description": "If this is a known seeded issue or a variant of one, name it; helps eval."
+          "maxLength": 400,
+          "description": "The exact request, command or test the verifier should run to confirm or kill this."
         },
-        "evidence": {
-          "type": "object",
-          "required": ["deterministic", "sources"],
-          "properties": {
-            "deterministic": {
-              "type": "boolean",
-              "description": "true only if at least one source is a scanner hit, a failing test, or an executed reproduction"
-            },
-            "sources": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["kind", "ref"],
-                "properties": {
-                  "kind": { "type": "string", "enum": ["scanner", "test", "reproduction", "reasoning"] },
-                  "ref": { "type": "string", "description": "findings.json rule id, test name, command run, or the code path traced" }
-                }
-              }
-            }
-          }
-        },
+        "evidence": { "$ref": "#/$defs/evidence" },
         "suggested_owner": { "type": "string" },
         "fix_direction": { "type": "string", "maxLength": 300 }
       }
@@ -64,29 +80,51 @@
         "is_real": { "type": "boolean" },
         "baselined": {
           "type": "boolean",
-          "description": "true if the finding is already tracked in the repo's triage/baseline (see repo-conventions.md). Real, but downgraded from block to comment."
+          "description": "true if baseline.md, the secret-scanner baseline, or a justified dependency ignore already tracks this. Real, but downgraded from block to comment."
         },
+        "baseline_ref": { "type": "string", "description": "baseline.md id or scanner baseline entry that matched" },
         "reason": { "type": "string", "maxLength": 400 },
         "false_positive_kind": {
           "type": "string",
           "description": "Only when is_real is false",
-          "enum": ["control-exists", "unreachable", "test-or-fixture-code", "intended-shared-resource", "wrong-file-or-line", "other"]
+          "enum": ["control-exists", "unreachable", "test-or-fixture-code", "intended-shared-resource", "wrong-file-or-line", "not-reproducible", "duplicate", "other"]
         },
-        "evidence": { "$ref": "#/$defs/finding/properties/evidence" },
+        "evidence": { "$ref": "#/$defs/evidence" },
         "confidence_adjustment": { "type": "string", "enum": ["raise", "keep", "lower"] }
       }
     }
   },
   "type": "object",
-  "required": ["risk_label", "decision", "base", "head", "redaction", "findings", "dropped", "eval"],
+  "required": ["risk_label", "decision", "scope", "reviewers", "findings", "dropped", "cost"],
   "properties": {
     "risk_label": { "type": "string", "enum": ["critical", "high", "medium", "low", "none"] },
     "decision": { "type": "string", "enum": ["block", "comment", "escalate", "pass"] },
     "escalate_to": { "type": "string" },
-    "base": { "type": "string" },
-    "head": { "type": "string" },
-    "mode": { "type": "string", "enum": ["diff", "full"] },
-    "redaction": { "type": "string", "enum": ["clean", "unverified", "failed"] },
+    "scope": { "type": "string", "description": "diff against <base> | paths: ... | full tree" },
+    "reviewers": {
+      "type": "object",
+      "required": ["selected", "skipped"],
+      "properties": {
+        "selected": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": ["reviewer", "reason"],
+            "properties": { "reviewer": { "$ref": "#/$defs/reviewer" }, "reason": { "type": "string" } }
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["reviewer", "reason"],
+            "properties": { "reviewer": { "$ref": "#/$defs/reviewer" }, "reason": { "type": "string" } }
+          }
+        },
+        "explicit": { "type": "boolean", "description": "true when the user named the reviewers" }
+      }
+    },
     "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
     "dropped": {
       "type": "array",
@@ -96,9 +134,18 @@
         "properties": { "finding": { "$ref": "#/$defs/finding" }, "verdict": { "$ref": "#/$defs/verdict" } }
       }
     },
+    "cost": {
+      "type": "object",
+      "required": ["reviewers", "verifiers"],
+      "properties": {
+        "reviewers": { "type": "integer" },
+        "verifiers": { "type": "integer" },
+        "approx_tokens": { "type": "integer" }
+      }
+    },
     "eval": {
       "type": "object",
-      "description": "Only populated in --full mode against eval/cases.md",
+      "description": "Only populated when the run is scored against evals/cases.md",
       "properties": {
         "expected_hits": { "type": "integer" },
         "hits": { "type": "integer" },

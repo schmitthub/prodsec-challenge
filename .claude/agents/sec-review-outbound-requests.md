@@ -1,0 +1,1 @@
+../../.agents/skills/sec-review/reviewers/outbound-requests.md
