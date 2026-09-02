@@ -53,7 +53,7 @@ def frontmatter(path: Path) -> dict[str, str]:
     for line in match.group(1).splitlines():
         key, _, value = line.partition(":")
         fields[key.strip()] = value.strip()
-    for required in ("name", "description"):
+    for required in ("name", "description", "tools"):
         if required not in fields:
             sys.exit(f"{path}: frontmatter missing {required}")
     return fields
@@ -134,7 +134,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.check:
         if problems:
             print(
-                "sec-review agents out of date; run scripts/sync_agents.py:\n  "
+                "sec-review agents out of date; run "
+                "uv run python .agents/skills/sec-review/scripts/sync_agents.py:\n  "
                 + "\n  ".join(problems)
             )
             return 1

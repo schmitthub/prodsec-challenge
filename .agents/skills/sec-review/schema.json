@@ -114,7 +114,14 @@
             "properties": { "reviewer": { "$ref": "#/$defs/reviewer" }, "reason": { "type": "string" } }
           }
         },
-        "skipped": { "type": "array", "items": { "$ref": "#/$defs/reviewer" } },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["reviewer", "reason"],
+            "properties": { "reviewer": { "$ref": "#/$defs/reviewer" }, "reason": { "type": "string" } }
+          }
+        },
         "explicit": { "type": "boolean", "description": "true when the user named the reviewers" }
       }
     },
