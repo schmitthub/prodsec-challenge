@@ -1,5 +1,19 @@
 # Records API Security Take-Home
 
+> [!IMPORTANT]
+> **Reviewers: submission index.** Everything the brief asks for, in one place.
+>
+> | Deliverable | Where |
+> | --- | --- |
+> | 1. CI pipeline | [`.github/workflows/`](.github/workflows/) — `pr.yml` / `main.yml` call [`security.yml`](.github/workflows/security.yml) (semgrep, bandit, gitleaks, image scan, dependency review) and [`test.yml`](.github/workflows/test.yml); [`codeql.yml`](.github/workflows/codeql.yml); [`release.yml`](.github/workflows/release.yml) → [`image.yml`](.github/workflows/image.yml) + [`build.yml`](.github/workflows/build.yml) (signed, attested, SBOM'd release). Local mirror of the same gates: [`.pre-commit-config.yaml`](.pre-commit-config.yaml) via the shared [`semgrep_gate.py`](.github/scripts/semgrep_gate.py). |
+> | 2. Custom detection (broken access control) | [`tests/test_authz_invariant.py`](tests/test_authz_invariant.py) — walks every authenticated route and fails when a member's response contains another user's identifiers. |
+> | 3. Triage write-up | [`challenge/deliverables/write-up.md`](challenge/deliverables/write-up.md) (working notes: [`challenge/notes/triage.md`](challenge/notes/triage.md)) |
+> | 4. Remediation message | TODO(andrew): not yet written — link it here |
+> | 5. AI-assisted PR security reviewer | [`challenge/deliverables/ai-security-review.md`](challenge/deliverables/ai-security-review.md) — design; a lite local implementation ships as the [`sec-review`](.agents/skills/sec-review/) agent skill. |
+> | 6. AI tools usage note | [`challenge/deliverables/ai-usage.md`](challenge/deliverables/ai-usage.md) |
+>
+> Local setup, hooks and scanner reports: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 This repository contains a small FastAPI service used for the Senior Product Security Engineer take-home.
 
 Start with `challenge/candidate-brief.md`.
