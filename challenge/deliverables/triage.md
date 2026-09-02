@@ -19,4 +19,8 @@
 
 ### Info / Quality 
 
-## 
+## Package Vulnerabilities
+
+| priority | package | cvss | vuln id |
+|---------|----------|------|---------|
+| medium | starlette@0.50.0 | | CVE-2026-54283 |

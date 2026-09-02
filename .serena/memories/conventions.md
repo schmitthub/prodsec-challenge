@@ -9,6 +9,5 @@
 ## CI / workflows
 - Actions SHA-pinned + `# vX.Y.Z` comment. Dependabot groups actions/pip/docker weekly with `chore(deps):` prefix.
 - Reusable workflows (`security.yml`, `test.yml`, `build.yml`) take permissions from the calling job; declare per-job in callers.
-- Custom semgrep rules live in `.semgrep/*.yaml`; each must run in both CI and the matching pre-commit hook.
 - Release attestation identity anchored to `.github/workflows/build.yml` (SLSA L3 style); don't move build/sign steps into `release.yml`.
 - Scanner exclusions: `.semgrepignore`, `.gitleaksignore`, gitleaks baseline `gitleaks-report.json` (not yet created).

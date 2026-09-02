@@ -56,6 +56,6 @@
 
 ## Sec nots
 
-- requirements.txt doesn't not have a lockfile meaning trans deps and actual will vary between environemnts and make supply chain security checks unreliable and reproducibility difficult. Fix: go with a manager like uv which i've done and committed the uv.lock file as part of the CI implementation. consider retiring requirements.txt once uv is fully adopted.
+- requirements.txt doesn't not have a lockfile meaning trans deps and actual will vary between environemnts and make supply chain security checks unreliable and reproducibility difficult. Fix: go with a manager like uv which i've done and committed the uv.lock file as part of the CI implementation. consider retiring requirements.txt once uv is fully adopted.uv.lock = what installs; requirements.txt scan = scanner's guess at graph, drifts both ways (hides click, invents idna, double counts pyjwt). Good triage-writeup ammo for retiring requirements.txt. Real open item from lock: click 8.1.8 (triage material, not fixing per scope).
 - needed to adjust gitleaks settings to detect secret in dev.py due to low entropy 
-- 
+- wrote tests for broken access controls

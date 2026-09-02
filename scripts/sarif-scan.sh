@@ -29,11 +29,11 @@ osv=$(tool osv-scanner "brew install osv-scanner")
 
 echo "semgrep $semgrep_version"
 uvx "semgrep==$semgrep_version" scan --quiet --metrics=off --disable-version-check \
-  --config p/default --config p/python --config p/security-audit --config p/owasp-top-ten --config .semgrep/ \
+  --config p/default --config p/python --config p/security-audit --config p/owasp-top-ten \
   --exclude .github/workflows \
   --sarif-output "$out/semgrep.sarif" --json-output "$out/semgrep.json" .
 uvx "semgrep==$semgrep_version" scan --quiet --metrics=off --disable-version-check \
-  --config p/github-actions --config .semgrep/ \
+  --config p/github-actions \
   --sarif-output "$out/semgrep-actions.sarif" --json-output "$out/semgrep-actions.json" .github/workflows
 
 echo "bandit $bandit_version"

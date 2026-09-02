@@ -43,6 +43,14 @@ class RecordsApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["record_id"], "rec_alice_001")
 
+    # Security tests for access control and authorization
+    def test_member_cannot_access_others_records(self):
+        token = login("alice@example.test", "alice-password")
+
+        response = client.get("/api/records/rec_bob_001", headers=auth_headers(token))
+
+        self.assertEqual(response.status_code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()
