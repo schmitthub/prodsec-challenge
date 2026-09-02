@@ -211,10 +211,12 @@ Also write `.sec-review/result.json` matching the top-level object in `schema.js
 
 ## Evaluation
 
-`eval/cases.md` holds seeded expected detections, expected non-detections,
-broken-access-control variants, the metrics to record, and a run log. It is never reviewer
-input. Run it deliberately with explicitly named reviewers, record the row, and record misses
-there instead of tuning a prompt toward a case.
+`evals/cases.md` is the harness-agnostic spec: seeded expected detections, expected
+non-detections, broken-access-control variants, metrics, run log, known misses. It is never
+reviewer input. `evals/<case>/` implements the variant and guardrail cases for
+`claude plugin eval` (scaffold plants the variant, graders check class, decision, subagent
+count, redaction); `evals/README.md` has the command and cost. Record misses in `cases.md`
+instead of tuning a prompt toward a case.
 
 ## Files
 
@@ -230,7 +232,8 @@ reviewers/<reviewer>.md     twelve reviewers; frontmatter makes each a subagent
 verify.md                   adversarial verifier, one per reviewer with findings
 scripts/sync_agents.py      derives .claude/agents/sec-review-*.md (symlinks) and
                             .codex/agents/sec-review-*.toml from the files above
-eval/cases.md               eval set, metrics, run log, known misses
+evals/cases.md              eval spec, metrics, run log, known misses
+evals/<case>/               claude plugin eval cases (prompt.md, case.yaml scaffold, graders/)
 scripts/context_pack.py     builds .sec-review/ (Python; Linux + macOS)
 scripts/route_map.py        route table from the live app
 ```

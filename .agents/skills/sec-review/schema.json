@@ -141,7 +141,7 @@
     },
     "eval": {
       "type": "object",
-      "description": "Only populated when the run is scored against eval/cases.md",
+      "description": "Only populated when the run is scored against evals/cases.md",
       "properties": {
         "expected_hits": { "type": "integer" },
         "hits": { "type": "integer" },

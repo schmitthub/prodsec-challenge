@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: cap-dry-run
+context:
+  scaffold_script: |
+    set -euo pipefail
+    cd "$(git rev-parse --show-toplevel)"
+    uv sync --quiet

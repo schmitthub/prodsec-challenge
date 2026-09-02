@@ -238,3 +238,6 @@ __marimo__/
 
 # sec-review context packs (.agents/skills/sec-review) — contain diffs
 .sec-review/
+
+# sec-review eval runs (claude plugin eval)
+.agents/skills/sec-review/evals/results/

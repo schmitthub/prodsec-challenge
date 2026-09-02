@@ -5,6 +5,9 @@ prompts must not be tuned toward these cases; a miss is recorded below, not patc
 
 ## How to run an eval
 
+Automated cases live beside this file (`README.md` has the `claude plugin eval` command).
+For a manual full-tree scoring run:
+
 1. `uv run python .agents/skills/sec-review/scripts/context_pack.py --full`
 2. Run the skill with the reviewers under test named explicitly (see `SKILL.md`,
    "Arguments"). Naming reviewers is the only way past the five-reviewer cap, and it is a
