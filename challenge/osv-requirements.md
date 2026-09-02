@@ -42,4 +42,3 @@ Total 5 packages affected by 19 known vulnerabilities (0 Critical, 4 High, 13 Me
 | https://osv.dev/GHSA-jp82-jpqv-5vv3 |      |           |           |         |               |                  |
 | https://osv.dev/PYSEC-2026-249      | 7.5  | PyPI      | starlette | 0.50.0  | 1.3.1         | requirements.txt |
 | https://osv.dev/GHSA-82w8-qh3p-5jfq |      |           |           |         |               |                  |
-

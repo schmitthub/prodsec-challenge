@@ -1,10 +1,9 @@
 
-Total 4 packages affected by 14 known vulnerabilities (0 Critical, 4 High, 9 Medium, 1 Low, 0 Unknown) from 1 ecosystem.
-14 vulnerabilities can be fixed.
+Total 3 packages affected by 13 known vulnerabilities (0 Critical, 3 High, 9 Medium, 1 Low, 0 Unknown) from 1 ecosystem.
+13 vulnerabilities can be fixed.
 
 | OSV URL                             | CVSS | ECOSYSTEM | PACKAGE   | VERSION | FIXED VERSION | SOURCE  |
 |-------------------------------------|------|-----------|-----------|---------|---------------|---------|
-| https://osv.dev/PYSEC-2026-2132     | 7.2  | PyPI      | click     | 8.1.8   | 8.3.3         | uv.lock |
 | https://osv.dev/PYSEC-2026-175      | 4.2  | PyPI      | pyjwt     | 2.12.0  | 2.13.0        | uv.lock |
 | https://osv.dev/GHSA-993g-76c3-p5m4 |      |           |           |         |               |         |
 | https://osv.dev/PYSEC-2026-176      | 5.4  | PyPI      | pyjwt     | 2.12.0  | 2.12.1        | uv.lock |
