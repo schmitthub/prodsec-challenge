@@ -23,20 +23,29 @@ by hand. Reviewer prompts are portable; everything repo-specific lives in `conte
 
 Reviewer names: `access-control authentication secrets-crypto injection outbound-requests
 data-exposure input-validation-dos business-logic unsafe-parsing-files web-platform
-supply-chain-ci general`. One file each in `reviewers/`; each is also a Claude Code
-subagent `sec-review-<name>` (`.claude/agents/` symlinks), as is `sec-review-verifier`.
+supply-chain-ci general`. One file each in `reviewers/`, with frontmatter (`name`,
+`description`, `tools`). That file is the single definition; `scripts/sync_agents.py`
+derives the per-harness subagents from it:
+
+| harness | generated | invoke one directly |
+|---|---|---|
+| Claude Code | `.claude/agents/sec-review-<name>.md` (symlink) | `@agent-sec-review-injection review the pack in .sec-review/` |
+| Codex | `.codex/agents/sec-review-<name>.toml` | "use the sec-review-injection subagent on .sec-review/" |
+| anything else | none needed | paste the reviewer prompt from step 3 |
+
+Same for `sec-review-verifier` (from `verify.md`). Add a reviewer: add one markdown file,
+run `uv run python .agents/skills/sec-review/scripts/sync_agents.py`; `--check` reports
+drift.
 
 ## Running one reviewer by name
 
-Build the pack (step 1), then invoke the subagent directly, no orchestration:
+Build the pack (step 1), then invoke the subagent directly, no orchestration.
+Standalone reviewers cover their whole file and return the JSON array; nothing is
+verified or decided unless you run the verifier too:
 
 ```
-@agent-sec-review-injection review the pack in .sec-review/
 @agent-sec-review-verifier verify .sec-review/raw/injection.json
 ```
-
-Standalone reviewers cover their whole file and return the JSON array; nothing is
-verified or decided unless you run the verifier too.
 
 ## Non-negotiables
 
@@ -118,9 +127,10 @@ per-subagent cost. If `--dry-run`, stop here.
 
 ### 3. Fan out reviewers
 
-- **Claude Code**: spawn the selected reviewers in one turn, in parallel, each as
-  `Agent(subagent_type: "sec-review-<reviewer>")`. The agent definition already carries the
-  reviewer file and read-only tools; the prompt is only:
+- **Harness with named subagents** (Claude Code `Agent(subagent_type: "sec-review-<reviewer>")`,
+  Codex "spawn the sec-review-<reviewer> subagent"): spawn the selected reviewers in one
+  turn, in parallel. The agent definition already carries the reviewer file and read-only
+  sandbox; the prompt is only:
 
   ```
   Context pack: <abs path to .sec-review/>. Read MANIFEST.md first.
@@ -128,7 +138,7 @@ per-subagent cost. If `--dry-run`, stop here.
   Return ONLY the JSON array.
   ```
 
-- **Other harness with a subagent tool**: same fan-out, with this prompt instead:
+- **Subagent tool but no named agents**: same fan-out, with this prompt instead:
 
   ```
   You are the <reviewer> reviewer of a security review. Read <skill>/reviewers/_common.md,
@@ -150,7 +160,7 @@ Save every array to `.sec-review/raw/<reviewer>.json`.
 ### 4. Verify
 
 Merge the arrays; dedupe on `(file, line)` across reviewers, keeping the higher confidence and
-noting the other reviewer in `evidence.sources`. Then run the verifier (Claude Code: `Agent(subagent_type: "sec-review-verifier")`; otherwise the `verify.md` prompt) **once per reviewer that
+noting the other reviewer in `evidence.sources`. Then run the verifier (named subagent `sec-review-verifier` where the harness has one; otherwise the `verify.md` prompt) **once per reviewer that
 produced findings**, each given that reviewer's array, fresh context, parallel. A verifier's job
 is to kill each finding or produce the deterministic evidence that lets it block. Save to
 `.sec-review/verdicts/<reviewer>.json`. If a reviewer has more than ~6 findings, split it in two.
@@ -218,7 +228,8 @@ context/baseline.md         triaged findings; verifier only
 reviewers/_common.md        rules every reviewer follows
 reviewers/<reviewer>.md     twelve reviewers; frontmatter makes each a subagent
 verify.md                   adversarial verifier, one per reviewer with findings
-.claude/agents/sec-review-*.md  symlinks to the above (Claude Code subagent names)
+scripts/sync_agents.py      derives .claude/agents/sec-review-*.md (symlinks) and
+                            .codex/agents/sec-review-*.toml from the files above
 eval/cases.md               eval set, metrics, run log, known misses
 scripts/context_pack.py     builds .sec-review/ (Python; Linux + macOS)
 scripts/route_map.py        route table from the live app
