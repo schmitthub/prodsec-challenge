@@ -34,7 +34,7 @@
             "required": ["kind", "ref"],
             "properties": {
               "kind": { "type": "string", "enum": ["scanner", "test", "reproduction", "reasoning"] },
-              "ref": { "type": "string", "description": "findings.json tool/rule id, test name, command run, or the code path traced" }
+              "ref": { "type": "string", "description": "scanner tool/rule id, test name, command run, or the code path traced" }
             }
           }
         }
@@ -59,7 +59,7 @@
         "summary": { "type": "string", "maxLength": 200 },
         "why_here": {
           "type": "string",
-          "description": "Impact in THIS service, referencing auth-model.md / route-map. Not a CWE description."
+          "description": "Impact in THIS service, referencing auth-model.md and the route table. Not a CWE description."
         },
         "verifier_instruction": {
           "type": "string",
@@ -95,15 +95,12 @@
     }
   },
   "type": "object",
-  "required": ["risk_label", "decision", "head", "mode", "redaction", "reviewers", "findings", "dropped", "cost"],
+  "required": ["risk_label", "decision", "scope", "reviewers", "findings", "dropped", "cost"],
   "properties": {
     "risk_label": { "type": "string", "enum": ["critical", "high", "medium", "low", "none"] },
     "decision": { "type": "string", "enum": ["block", "comment", "escalate", "pass"] },
     "escalate_to": { "type": "string" },
-    "base": { "type": "string" },
-    "head": { "type": "string" },
-    "mode": { "type": "string", "enum": ["diff", "full"] },
-    "redaction": { "type": "string", "enum": ["clean", "unverified", "failed"] },
+    "scope": { "type": "string", "description": "diff against <base> | paths: ... | full tree" },
     "reviewers": {
       "type": "object",
       "required": ["selected", "skipped"],

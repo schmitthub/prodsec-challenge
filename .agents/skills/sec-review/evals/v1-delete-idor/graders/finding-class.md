@@ -1,9 +1,7 @@
 ---
 type: regex
-target:
-  source: file
-  path: .sec-review/result.json
+target: last_message
 match: contains
 ---
 
-"class":\s*"access-control"
+"class":\s*"access-control"|class.*access-control

@@ -19,7 +19,7 @@ the finding is fixed. Add an entry only with a status and a reason.
 | B8 | data-exposure | `app/main.py` global handler returns `repr(exc)` | tracked, intentionally unpatched | seeded defect |
 | B9 | supply-chain-ci | `Dockerfile` runs as root | tracked | low standalone impact; fix pending |
 | B10 | supply-chain-ci | `requirements.txt` vs `uv.lock` two dependency surfaces | tracked | retiring `requirements.txt` is a documented recommendation |
-| B11 | secrets-crypto | `config/dev.py`, `helpers/fixture_secrets.py` fixture values | accepted | fake, non-production values; redacted from the pack; in the gitleaks baseline |
+| B11 | secrets-crypto | `config/dev.py`, `helpers/fixture_secrets.py` fixture values | accepted | fake, non-production values; in the gitleaks baseline |
 | B12 | authentication | `app/routes/login.py` non-constant-time password compare | accepted, informational | not network-exploitable here; same 401 on both branches |
 | B13 | data-exposure | `/docs`, `/redoc`, `/openapi.json` unauthenticated | accepted | framework default for a dev service |
 

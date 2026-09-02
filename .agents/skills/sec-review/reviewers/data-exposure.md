@@ -1,7 +1,7 @@
 ---
 name: sec-review-data-exposure
-description: Security reviewer for information leaks: exception details, over-broad responses, sensitive data in logs, debug/docs surfaces, existence oracles. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-data-exposure on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for information leaks: exception details, over-broad responses, sensitive data in logs, debug/docs surfaces, existence oracles. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-data-exposure on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -16,9 +16,9 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 
-1. `findings.json`: error-handling and logging rules.
-2. `route-map.md`: the `response_model` column. A handler returning a raw object or dict
-   instead of a declared model is where over-exposure hides.
+1. scanner results (`.sarif/`, if present): error-handling and logging rules.
+2. The route table: which handlers declare a response model. A handler returning a raw
+   object or dict instead of a declared model is where over-exposure hides.
 3. Changed exception handlers, middleware, logging calls, response models, serialisers,
    and any code that renders internal state into a response.
 

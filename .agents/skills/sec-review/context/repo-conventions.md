@@ -5,9 +5,8 @@ portable and read this instead.
 
 ## Baselines
 
-- `baseline.md` (this directory, copied into the pack): human-triaged findings. Listed
-  there means **baselined**: still real, still reported, `comment` not `block`. Verifier
-  only.
+- `baseline.md` (this directory): human-triaged findings. Listed there means **baselined**:
+  still real, still reported, `comment` not `block`. Verifier only.
 - `gitleaks-report.json`: redacted secret-scanner baseline; every consumer passes `--redact`.
 - `osv-scanner.toml`: dependency ignores, each with `reason` + `ignoreUntil`.
 

@@ -1,7 +1,7 @@
 ---
 name: sec-review-input-validation-dos
-description: Security reviewer for input shape and resource limits: weak validation, unbounded pagination, ReDoS, missing rate limits, parser bombs. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-input-validation-dos on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for input shape and resource limits: weak validation, unbounded pagination, ReDoS, missing rate limits, parser bombs. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-input-validation-dos on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -16,11 +16,11 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first. Injection into an i
 
 ## Worklist
 
-1. `route-map.md`: every parameter and body field. Check what constrains each one: type,
+1. the route table: every parameter and body field. Check what constrains each one: type,
    length, range, pattern, enum, count.
 2. Changed request models, validators, query builders, loops over input, regexes,
    file or upload handling sizes, and anything that allocates per item of input.
-3. `findings.json` for regex and resource rules.
+3. scanner results (`.sarif/`, if present) for regex and resource rules.
 
 ## Look for
 

@@ -1,7 +1,7 @@
 ---
 name: sec-review-outbound-requests
-description: Security reviewer for requests the service makes: SSRF, open redirect, unverified webhooks/callbacks, upstream response reflection, missing timeouts. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-outbound-requests on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for requests the service makes: SSRF, open redirect, unverified webhooks/callbacks, upstream response reflection, missing timeouts. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-outbound-requests on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -17,7 +17,7 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 
-1. `findings.json`: SSRF and redirect rules. Confirm.
+1. scanner results (`.sarif/`, if present): SSRF and redirect rules. Confirm.
 2. Changed code that calls an HTTP client, opens a socket, resolves a hostname, follows a
    redirect, sends email or a message, or receives a callback.
 3. `auth-model.md`: which roles may trigger outbound calls at all.

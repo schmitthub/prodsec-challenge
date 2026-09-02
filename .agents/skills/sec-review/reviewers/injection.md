@@ -1,7 +1,7 @@
 ---
 name: sec-review-injection
-description: Security reviewer for untrusted data reaching interpreters: SQL/NoSQL, command, code/template, path traversal, header/log injection. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-injection on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for untrusted data reaching interpreters: SQL/NoSQL, command, code/template, path traversal, header/log injection. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-injection on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -17,9 +17,9 @@ Parsers of untrusted formats belong to `unsafe-parsing-files`.
 
 ## Worklist
 
-1. `findings.json`: static analysers usually catch the obvious cases. Confirm, set
+1. scanner results (`.sarif/`, if present): static analysers usually catch the obvious cases. Confirm, set
    `kind: scanner`, and write `why_here`.
-2. `route-map.md`: every request parameter, body field and header is a source. So are
+2. the route table: every request parameter, body field and header is a source. So are
    queue messages, file contents and database values that originated from users.
 3. Changed code containing a sink (below) or a string that looks like query, command,
    template or path text.

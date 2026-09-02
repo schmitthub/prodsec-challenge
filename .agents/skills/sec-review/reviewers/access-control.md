@@ -1,7 +1,7 @@
 ---
 name: sec-review-access-control
-description: Security reviewer for authorization flaws: IDOR, missing object/function-level checks, privilege escalation, mass assignment, tenant isolation. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-access-control on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for authorization flaws: IDOR, missing object/function-level checks, privilege escalation, mass assignment, tenant isolation. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-access-control on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -17,8 +17,8 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 1. `auth-model.md`: which resources are tenant-scoped, which roles exist, what counts as a
    control.
-2. `route-map.md`: every route with `client_supplied_id = yes` or `list_route = yes`, plus
-   any route whose method is not GET.
+2. The route table: every route that takes a client-supplied identifier (path, query,
+   body, header), every list/search/export route, and every non-GET route.
 3. The changed handlers and the helpers they call to reach a resource.
 
 ## Procedure, per route

@@ -1,7 +1,7 @@
 ---
 name: sec-review-secrets-crypto
-description: Security reviewer for secret material and crypto: hardcoded or defaulted secrets, weak algorithms, bad randomness, TLS verification, secrets in build artifacts. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-secrets-crypto on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for secret material and crypto: hardcoded or defaulted secrets, weak algorithms, bad randomness, TLS verification, secrets in build artifacts. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-secrets-crypto on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -16,11 +16,11 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 
-1. `MANIFEST.md`: the redacted-in-scope list. For each redacted path that appears in
-   `changed-files.txt`, emit exactly one `medium` finding "secret-bearing file changed;
-   review manually", `deterministic: false`. Do not speculate about its contents.
-2. `findings.json`: secret-scanner and static-analysis hits on the in-scope files.
-   Confirm each; a confirmed hit is deterministic evidence.
+1. Files in scope that exist to hold secret material (env files, dev configs, fixture
+   secret modules, CI env blocks). A change there is a finding in its own right; cite file
+   and line, write every value as `<redacted>`, never echo it.
+2. Scanner results (`.sarif/`, if present): secret-scanner and static-analysis hits on the
+   in-scope files. Confirm each; a confirmed hit is deterministic evidence.
 3. Changed code that reads configuration, signs, encrypts, hashes, generates tokens or ids,
    or configures TLS.
 4. Build and packaging files in scope (container files, CI env blocks, ignore files) for
@@ -28,7 +28,7 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Look for
 
-- Literal keys, tokens, passwords, connection strings, private keys in non-redacted files.
+- Literal keys, tokens, passwords, connection strings, private keys in any file in scope.
 - `environ.get("SECRET", "<literal>")` style defaults; the same secret across environments;
   secret loaded from a file committed to the repo.
 - Secret too short or low entropy for its use (HMAC keys, signing secrets).
@@ -47,7 +47,7 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 | broken algorithm or reuse for confidentiality or signing | high |
 | weak randomness for tokens | high |
 | TLS verification disabled | high |
-| secret-bearing file changed (redacted) | medium, manual review |
+| secret-bearing file changed, value not scanner-flagged | medium; say what kind of secret and where it is consumed |
 | weak hash for non-security use | info |
 
 ## Not findings

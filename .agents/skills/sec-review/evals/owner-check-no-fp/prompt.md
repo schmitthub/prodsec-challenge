@@ -6,6 +6,5 @@ max_turns: 40
 timeout_seconds: 1200
 ---
 
-Run the sec-review skill on the working tree with only the `access-control` reviewer,
-then the verifier, then the decision and report. Write `.sec-review/result.json` and print
-`.sec-review/report.md`.
+Run the sec-review skill on the working tree (diff against HEAD) with only the
+`access-control` reviewer, then the verifier, then the decision, and print the report.

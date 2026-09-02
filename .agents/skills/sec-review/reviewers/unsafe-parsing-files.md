@@ -1,7 +1,7 @@
 ---
 name: sec-review-unsafe-parsing-files
-description: Security reviewer for untrusted formats and files: deserialization, XXE, archive extraction, uploads, temp files, symlinks. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-unsafe-parsing-files on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for untrusted formats and files: deserialization, XXE, archive extraction, uploads, temp files, symlinks. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-unsafe-parsing-files on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -17,7 +17,7 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 ## Worklist
 
-1. `findings.json`: loader and parser rules.
+1. scanner results (`.sarif/`, if present): loader and parser rules.
 2. Changed code that: loads pickle, marshal, YAML, XML, or a custom format from input;
    accepts uploads; extracts archives; writes files whose name or path derives from input;
    creates temp files; serves files back.

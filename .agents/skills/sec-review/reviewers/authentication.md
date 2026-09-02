@@ -1,7 +1,7 @@
 ---
 name: sec-review-authentication
-description: Security reviewer for identity and session flaws: missing auth on routes, token/session validation, password storage and comparison, enumeration and brute force. Read-only; consumes the sec-review context pack in .sec-review/ and returns a JSON array of findings. Use via the sec-review skill, or directly ("run sec-review-authentication on this diff") after building the pack.
-tools: Read, Grep, Glob
+description: Security reviewer for identity and session flaws: missing auth on routes, token/session validation, password storage and comparison, enumeration and brute force. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-authentication on this diff").
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
 
@@ -18,9 +18,9 @@ Read `.agents/skills/sec-review/reviewers/_common.md` first.
 
 1. `auth-model.md`: the intended identity model, which surfaces are meant to be
    unauthenticated.
-2. `route-map.md`: the `authenticated` and `dependencies` columns. Any route outside the
-   declared unauthenticated set with no auth dependency is a finding. New routers count.
-3. `findings.json`: scanner rules about hardcoded passwords, weak hashes, JWT options.
+2. The route table: which routes carry the auth dependency. Any route outside the declared
+   unauthenticated set with no auth dependency is a finding. New routers count.
+3. scanner results (`.sarif/`, if present): scanner rules about hardcoded passwords, weak hashes, JWT options.
 4. Changed code in login, token issue/verify, password, session, middleware, and any
    dependency that yields the current user.
 

@@ -1,9 +1,7 @@
 ---
 type: regex
-target:
-  source: file
-  path: .sec-review/result.json
+target: last_message
 match: contains
 ---
 
-"decision":\s*"(block|escalate)"
+sec-review: (critical|high) — (block|escalate)

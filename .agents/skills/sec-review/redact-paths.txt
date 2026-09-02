@@ -1,9 +1,0 @@
-# Paths that never enter the context pack. One git pathspec per line; comments allowed.
-# These hold seeded/fixture secrets. Reviewers see "excluded by redaction policy" instead
-# and must flag the path for manual review if it appears in changed-files.txt.
-config/dev.py
-helpers/fixture_secrets.py
-.env
-.env.*
-gitleaks-report.json
-.clawker.local.yaml
