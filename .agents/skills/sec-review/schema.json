@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sec-review output shapes",
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "class", "severity", "confidence", "file", "line", "summary", "why_here", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "<reviewer>-<n>, e.g. access-control-1" },
+        "class": {
+          "type": "string",
+          "enum": ["access-control", "injection", "authn-secrets", "data-exposure", "supply-chain-ci"]
+        },
+        "cwe": { "type": "string", "pattern": "^CWE-[0-9]+$" },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "high = you can point at the exact source, sink and missing control; medium = pattern matches but a control may exist out of view; low = suspicion"
+        },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "summary": { "type": "string", "maxLength": 200 },
+        "why_here": {
+          "type": "string",
+          "description": "Impact in THIS service, referencing auth-model.md / route-map. Not a CWE description."
+        },
+        "variant_of": {
+          "type": "string",
+          "description": "If this is a known seeded issue or a variant of one, name it; helps eval."
+        },
+        "evidence": {
+          "type": "object",
+          "required": ["deterministic", "sources"],
+          "properties": {
+            "deterministic": {
+              "type": "boolean",
+              "description": "true only if at least one source is a scanner hit, a failing test, or an executed reproduction"
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["kind", "ref"],
+                "properties": {
+                  "kind": { "type": "string", "enum": ["scanner", "test", "reproduction", "reasoning"] },
+                  "ref": { "type": "string", "description": "findings.json rule id, test name, command run, or the code path traced" }
+                }
+              }
+            }
+          }
+        },
+        "suggested_owner": { "type": "string" },
+        "fix_direction": { "type": "string", "maxLength": 300 }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "required": ["finding_id", "is_real", "reason", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": { "type": "string" },
+        "is_real": { "type": "boolean" },
+        "baselined": {
+          "type": "boolean",
+          "description": "true if the finding is already tracked in the repo's triage/baseline (see repo-conventions.md). Real, but downgraded from block to comment."
+        },
+        "reason": { "type": "string", "maxLength": 400 },
+        "false_positive_kind": {
+          "type": "string",
+          "description": "Only when is_real is false",
+          "enum": ["control-exists", "unreachable", "test-or-fixture-code", "intended-shared-resource", "wrong-file-or-line", "other"]
+        },
+        "evidence": { "$ref": "#/$defs/finding/properties/evidence" },
+        "confidence_adjustment": { "type": "string", "enum": ["raise", "keep", "lower"] }
+      }
+    }
+  },
+  "type": "object",
+  "required": ["risk_label", "decision", "base", "head", "redaction", "findings", "dropped", "eval"],
+  "properties": {
+    "risk_label": { "type": "string", "enum": ["critical", "high", "medium", "low", "none"] },
+    "decision": { "type": "string", "enum": ["block", "comment", "escalate", "pass"] },
+    "escalate_to": { "type": "string" },
+    "base": { "type": "string" },
+    "head": { "type": "string" },
+    "mode": { "type": "string", "enum": ["diff", "full"] },
+    "redaction": { "type": "string", "enum": ["clean", "unverified", "failed"] },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "dropped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding", "verdict"],
+        "properties": { "finding": { "$ref": "#/$defs/finding" }, "verdict": { "$ref": "#/$defs/verdict" } }
+      }
+    },
+    "eval": {
+      "type": "object",
+      "description": "Only populated in --full mode against eval/cases.md",
+      "properties": {
+        "expected_hits": { "type": "integer" },
+        "hits": { "type": "integer" },
+        "misses": { "type": "array", "items": { "type": "string" } },
+        "false_positives": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

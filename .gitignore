@@ -227,5 +227,14 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# claude settings 
+# claude settings
 .claude/settings.local.json
+
+# clawker
+.clawker.local.yaml
+
+# local scanner output (scripts/sarif-scan.sh) — SARIF embeds code snippets
+.sarif/
+
+# sec-review context packs (.agents/skills/sec-review) — contain diffs
+.sec-review/

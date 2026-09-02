@@ -11,7 +11,6 @@
   - `dependency-review` (PR only, `fail-on-severity: high`).
 - `release.yml` (tag `v*`): `validate` (semver, ancestor of origin/main) → `build.yml`. Build job perms: `contents: write`, `id-token: write`, `attestations: write`, `artifact-metadata: write`.
 - `build.yml`: outputs go in `release-subjects/` (user's convention). No Docker. `git archive --prefix records-api-<tag>/` of the tag → `syft scan file:uv.lock` (SPDX + CycloneDX, 24 pkgs incl. transitives + dev ruff; `.syft.yaml` = source name only) → SHA256SUMS → `cosign sign-blob --bundle` each → `actions/attest@v4` twice: provenance mode (`subject-path: release-subjects/*`) and SBOM mode (`sbom-path`, subject = archive) — NOT the deprecated attest-build-provenance/attest-sbom wrappers → self-verify (`gh attestation verify --signer-workflow <repo>/.github/workflows/build.yml`, `cosign verify-blob --certificate-identity-regexp`) → `gh release create --verify-tag --generate-notes --notes-file`. Note: the project is not a distribution (no `[build-system]`, uv virtual project), hence source archive not sdist/wheel.
-- `.semgrep/actions.yaml`: `pull_request_target` + cache-capable action rule. App BAC/IDOR rule still TODO here.
 - All actions SHA-pinned + `# vX.Y.Z`. Resolve SHAs from the container via `git ls-remote --tags git@github.com:<owner>/<repo>.git` (SSH open; HTTPS/API to non-allowlisted repos is 403). Use the peeled `^{}` SHA for annotated tags. Docker Hub digests: `docker pull` + `docker inspect --format '{{index .RepoDigests 0}}'` (daemon has host network).
 
 ## Pins that must move together

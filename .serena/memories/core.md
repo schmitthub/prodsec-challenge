@@ -14,7 +14,7 @@ Senior ProdSec take-home. `app/` = deliberately vulnerable FastAPI "records API"
 - `app/routes/{login,records,search,webhooks}.py`; `app/models.py` `User`, `TokenResponse`
 - `tests/test_records.py` unittest + TestClient, happy paths only
 - no `src/`, no `[build-system]` (uv virtual project: deps only); the service is `app/` run from source
-- `.github/workflows/`, `.semgrep/`, `.pre-commit-config.yaml` — see `mem:ci/core` for pipeline layout, gating policy, release signing/attestation flow, and reusable-workflow permission rules
+- `.github/workflows/`, `.pre-commit-config.yaml` — see `mem:ci/core` for pipeline layout, gating policy, release signing/attestation flow, and reusable-workflow permission rules
 
 ## Further memories
 - `mem:tech_stack` — pins, Python version, tooling

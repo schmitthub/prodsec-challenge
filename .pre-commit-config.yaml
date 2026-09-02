@@ -53,10 +53,10 @@ repos:
       types: [text]
       exclude: ^\.github/workflows/
       args:
+        - --config=p/default
         - --config=p/python
         - --config=p/security-audit
         - --config=p/owasp-top-ten
-        - --config=.semgrep/
         - --skip-unknown-extensions
       # Scans the staged files on commit (pre-existing findings in untouched
       # files don't block unrelated commits); `prek run --all-files` = full scan.
@@ -68,7 +68,6 @@ repos:
       files: ^\.github/workflows/.*\.ya?ml$
       args:
         - --config=p/github-actions
-        - --config=.semgrep/
         - --skip-unknown-extensions
 
 - repo: https://github.com/google/osv-scanner

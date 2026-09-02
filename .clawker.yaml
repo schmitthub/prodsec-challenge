@@ -105,7 +105,6 @@ build:
     - locales-all
     - sqlite3
 security:
-  docker_socket: true
   firewall:
     add_domains:
       - pypi.org
@@ -116,6 +115,8 @@ security:
       - mcp.context7.com
       - context7.com
       - semgrep.dev
+      - docs.github.com
+      - osv.dev
       - api.osv.dev      # osv-scanner vuln queries (pre-commit hook)
       - api.deps.dev     # osv-scanner transitive resolution for requirements.txt
     rules:

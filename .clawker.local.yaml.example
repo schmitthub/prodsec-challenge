@@ -1,0 +1,2 @@
+security:
+  docker_socket: true  # mounts host docker socket for docker outside of docker

@@ -9,3 +9,6 @@ challenge/
 # Build/venv output
 .venv/
 dist/
+
+# Local scanner output
+.sarif/
