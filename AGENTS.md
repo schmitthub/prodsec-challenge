@@ -8,7 +8,11 @@ Senior Product Security Engineer take-home (brief: `challenge/candidate-brief.md
 
 **Do not patch seeded vulnerabilities in `app/` unless explicitly asked.** They are the subject of the exercise. Seeded issues (all intentional): IDOR in `GET /api/records/{record_id}` (`app/routes/records.py` — no owner check; compare `/notes` which has one), SQL string interpolation in `db.search_records`, SSRF in `POST /api/webhooks/vendor-preview`, `verify_exp: False` + hardcoded `JWT_SECRET` in `app/auth.py`, plaintext passwords in `db.USERS`, `repr(exc)` leaked by the global exception handler, fake secrets in `config/dev.py` and `helpers/fixture_secrets.py`.
 
-Status tracker: `challenge/notes.md`. Deliverables still empty: `challenge/report.md`, `challenge/ai-usage.md`; `challenge/ai-security-review.md` is the provided template.
+## Scenario Boundary (Non-negotiable)
+
+The `challenge/` directory contains scenario instructions and submission material; it is **not part of the project**. No application code, tests, scripts, CI workflows, configuration, scanner policy, or agent skill may import, parse, copy, link to, cite, name, or otherwise depend on anything under `challenge/`. Never use that directory as a runtime input, policy source, baseline, suppression justification, or project documentation target. If project tooling needs equivalent information, place it in an appropriate project-owned location outside `challenge/`.
+
+The only permitted acknowledgement of `challenge/` outside that directory is this agent-instruction boundary and direct work on the scenario material when the user explicitly requests it. References from project artifacts into `challenge/` are always defects; remove the dependency rather than correcting its path.
 
 ## Commands
 
