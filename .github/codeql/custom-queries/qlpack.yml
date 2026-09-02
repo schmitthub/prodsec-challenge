@@ -1,0 +1,14 @@
+# Custom CodeQL query pack for this repository. Referenced from
+# codeql-config.yml as `- uses: ./.github/codeql/custom-queries` (currently
+# commented out until the first real query lands). codeql-action resolves
+# `codeql/python-all` from the CodeQL bundle it ships, so no lock file or
+# registry access is needed for a local pack.
+#
+# Local iteration (CodeQL CLI):
+#   codeql database create /tmp/db --language=python --source-root=.
+#   codeql database analyze /tmp/db .github/codeql/custom-queries --format=sarif-latest --output=/tmp/out.sarif
+name: schmitthub/prodsec-challenge-queries
+version: 0.0.1
+library: false
+dependencies:
+  codeql/python-all: "*"
