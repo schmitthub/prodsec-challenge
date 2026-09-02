@@ -10,7 +10,6 @@ __pycache__/
 .claude/
 .codex/
 .serena/
-.semgrep/
 .semgrepignore
 .pre-commit-config.yaml
 .gitleaks.toml
