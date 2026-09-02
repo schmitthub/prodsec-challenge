@@ -1,70 +1,54 @@
-# Reviewer: data-exposure
+# Lens: data-exposure
 
-Class: information leaking to the wrong party. Error handlers and stack traces (CWE-209,
-CWE-497), over-broad response models (CWE-200), sensitive data in logs (CWE-532), debug
-endpoints/docs in production (CWE-489), verbose 404-vs-403 oracles (CWE-204), CORS and
-security headers (CWE-942, CWE-1021).
+Information reaching the wrong party. Error details and stack traces (CWE-209, CWE-497),
+over-broad responses and serialisation (CWE-200, CWE-359), sensitive data in logs (CWE-532),
+debug and introspection surfaces (CWE-489), behavioural oracles (CWE-204), sensitive data
+cached or persisted where it should not be (CWE-524, CWE-312).
 
-## Read, in order
+Read `_common.md` first.
 
-1. `MANIFEST.md`, `auth-model.md`.
-2. `findings.json` — bandit `B110` (pass on except), semgrep error-handling rules.
-3. `route-map.md` — response models. A handler returning a raw dict/ORM object instead of a
-   declared `response_model` is where over-exposure hides.
-4. `diff.patch` / changed files, plus `app/main.py` on `--full` (global handlers, middleware,
-   docs settings).
+## Worklist
+
+1. `findings.json`: error-handling and logging rules.
+2. `route-map.md`: the `response_model` column. A handler returning a raw object or dict
+   instead of a declared model is where over-exposure hides.
+3. Changed exception handlers, middleware, logging calls, response models, serialisers,
+   and any code that renders internal state into a response.
 
 ## Look for
 
 **Errors**
-- Global exception handler returning `str(exc)`, `repr(exc)`, `traceback.format_exc()`, or
-  the exception class name to the client.
-- `HTTPException(detail=<internal state>)` — SQL text, file paths, hostnames, user ids of
-  *other* users.
-- Different status/body for "not found" vs "not yours" on tenant-scoped resources. In this
-  service, the correct answer for a record you don't own is the same as for one that doesn't
-  exist (see `auth-model.md`). This is a leak, not access control — `access-control` owns
-  the missing check, you own the oracle.
+- Handlers returning exception text, repr, class name or traceback to clients.
+- Error details carrying internal state: query text, paths, hostnames, other users' ids.
+- Different status or body for "does not exist" vs "not yours" on tenant-scoped resources.
+  The missing check is `access-control`; the oracle is yours.
 
 **Responses**
-- Returning `User` objects that include password/hash/secret fields; returning full records
-  when only a subset is needed; list endpoints echoing `owner_id` of others.
-- Pydantic models with `password` or token fields and no `exclude`.
+- Objects serialised with credential, hash, token, or internal fields present.
+- Collections that include other tenants' identifiers or metadata.
+- Full records where the caller needs a subset.
 
-**Logging**
-- Request bodies, `Authorization` headers, tokens, passwords, or PII in `print`/`logging`.
+**Logs and persistence**
+- Request bodies, authorisation headers, tokens, secrets or personal data in logs.
+- Sensitive data written to caches, temp files or analytics without need.
 
 **Surfaces**
-- `/docs`, `/redoc`, `/openapi.json` enabled with no environment gate — `low` here (dev
-  service), note it.
-- `debug=True`, `--reload` in the Dockerfile `CMD`.
-- CORS `allow_origins=["*"]` with credentials.
-
-**Outbound**
-- SSRF responses (`webhooks`) echoed back to the caller: body, headers, status of an internal
-  host. That turns blind SSRF into full-read SSRF — flag it here and cross-reference the
-  `injection` class in `variant_of`.
+- API docs, schema, debug toolbars, profilers, admin consoles exposed without an
+  environment gate. Rate by what they reveal and by what `auth-model.md` accepts.
+- Debug mode or auto-reload in a production entrypoint.
+- Verbose server, framework or version headers.
 
 ## Severity
 
 | situation | severity |
 |---|---|
-| exception repr/traceback to client | medium (high if it can include secrets or SQL) |
-| credentials/tokens in logs or responses | high |
-| SSRF response body echoed to caller | high |
-| 404/403 oracle on tenant resources | low |
-| docs/debug exposed | low |
-
-## Evidence
-
-bandit/semgrep hit → deterministic. Otherwise reasoning; give the verifier a request that
-triggers the handler (e.g. `GET /api/records/not-an-int`, or a search query that breaks SQL).
+| credentials or tokens in logs or responses | high |
+| exception text to client | medium; high if it can include secrets or query text |
+| other tenants' data in a response | high (also raise with `access-control` if the check is missing) |
+| existence oracle on tenant resources | low |
+| docs, schema or debug surface exposed | low unless it reveals secrets or internal hosts |
 
 ## Not findings
 
-- `HTTPException(status_code=404, detail="Record not found")` — generic, fine.
-- Logging at `debug` level with no PII.
-
-## Output
-
-JSON array of `finding`, `class: "data-exposure"`, ids `data-exposure-<n>`.
+- Generic error messages with a stable status code.
+- Logging at debug level with no personal or secret data.

@@ -1,82 +1,79 @@
-# Reviewer: supply-chain-ci
+# Lens: supply-chain-ci
 
-Class: the pipeline and the artifact. GitHub Actions security (CWE-94 via expression
-injection, CWE-250 over-broad permissions, CWE-829 unpinned actions), dependency and
-lockfile hygiene (CWE-1104, CWE-1395), container hardening (CWE-250 root, CWE-1188),
-release integrity (signing, attestation, immutable tags).
+The pipeline and the artifact. CI expression injection (CWE-94), over-broad permissions
+(CWE-250), unpinned or mutable dependencies and actions (CWE-829, CWE-1104), dependency
+and lockfile hygiene (CWE-1395), container hardening (CWE-250, CWE-1188), artifact
+integrity and provenance (CWE-345, CWE-494), scanner and gate suppression.
 
-## Read, in order
+Read `_common.md` first, then `repo-conventions.md`: it states the pin style, baseline
+handling, policy-exempt files and the release topology this repo commits to. Hold the
+diff to those; do not invent stricter ones.
 
-1. `MANIFEST.md`.
-2. `findings.json` — semgrep `p/github-actions` hits (SARIF `semgrep-actions`), osv-scanner
-   results. Confirm; these are deterministic.
-3. `changed-files.txt` filtered to `.github/`, `Dockerfile`, `.dockerignore`,
-   `pyproject.toml`, `uv.lock`, `requirements.txt`, `.pre-commit-config.yaml`,
-   `.gitleaks.toml`, `osv-scanner.toml`, `.semgrepignore`, `.gitleaksignore`, `scripts/`.
-4. `diff.patch` for those files. On `--full`, read them whole.
+## Worklist
 
-Read `repo-conventions.md` in the pack for the conventions this repo holds itself to
-(pin style, baseline handling, policy-exempt files). Hold the diff to those; do not
-invent stricter ones.
+1. `findings.json`: CI and dependency scanner hits. Confirm; deterministic.
+2. Changed workflow files, composite actions, container files and ignore files, lockfiles
+   and manifests, pre-commit config, scanner configs and baselines.
 
 ## Look for
 
 **Workflows**
-- `${{ github.event.* }}` / `${{ inputs.* }}` / `${{ steps.*.outputs.* }}` interpolated
-  directly into `run:` — expression injection. Should go through `env:`.
-- `pull_request_target` with checkout of the PR head; `workflow_run` trusting artifacts.
-- `permissions:` missing, or `write-all`, or a job that has `contents: write` /
-  `id-token: write` without needing it. Reusable workflows: permissions declared per
-  *calling* job — check the callers, not the callee.
-- Actions pinned by tag or branch instead of SHA; SHA with a stale/wrong version comment.
-- Secrets passed to third-party actions or echoed; `ACTIONS_STEP_DEBUG`.
-- Cache poisoning: cache key derived from PR-controlled input, restored on main.
-- Artifact provenance: build → scan → sign chain broken (sign job that doesn't `need` scan,
-  scan that pulls instead of consuming the built artifact).
-- Severity gates loosened: a scanner's fail threshold raised, `continue-on-error: true`
-  added, a baseline regenerated in the same PR that adds the finding it baselines.
+- Event or input expressions interpolated into `run:` instead of passed through `env:`.
+- Privileged triggers (`pull_request_target`, `workflow_run`, `issue_comment`) that check
+  out or execute untrusted code, or trust untrusted artifacts.
+- Missing or broad `permissions:`; write, id-token or attestation scopes on jobs that do
+  not need them. Reusable workflows take permissions from the caller: check callers.
+- Actions or images pinned by tag or branch; a digest whose version comment disagrees.
+- Secrets passed to third-party steps, printed, or reachable from fork PRs.
+- Cache keys derived from untrusted input, restored on trusted branches.
+- Self-hosted runners for untrusted triggers.
+
+**Artifact identity**
+- Any scan, sign or attest step that rebuilds, pulls, or otherwise targets something
+  other than the exact build output (digest or archive) it claims to cover. That is the
+  provenance break. Job ordering alone is not: a sign step is allowed to depend only on
+  build when `repo-conventions.md` says scanning is advisory.
+- Sign-after-scan required only where repository policy makes the scan a release gate.
+- Attestation subject or signing identity that does not match the artifact or the
+  workflow that built it.
+
+**Gates and suppressions**
+- Fail thresholds raised, `continue-on-error` added, a scanner removed or narrowed,
+  a baseline regenerated in the same change that introduces what it baselines.
+- New inline suppressions (`nosec`, `nosemgrep`, ignore-file entries, config
+  `paths-ignore`) with no adjacent justification pointing at a tracked decision.
 
 **Dependencies**
-- `requirements.txt` and `uv.lock` disagreeing on a pin (two dep surfaces in this repo).
-- New dependency with no lockfile change; version range instead of a pin; git/URL deps.
-- `osv-scanner.toml` ignores added without a reason and an expiry.
-- Dockerfile `pip install` from `requirements.txt` while the lock says otherwise.
+- Manifest and lockfile disagreeing; new dependency without a lockfile change; version
+  ranges instead of pins; git or URL dependencies; install steps reading a different
+  manifest than the lockfile that the SBOM and scanners read.
+- Vulnerability-ignore entries without a reason and an expiry.
 
 **Container**
-- Runs as root (no `USER`); `latest`/unpinned base image; secrets in build args or layers;
-  `--reload` in `CMD`; `.dockerignore` missing `.git`, `.env`, `tests`.
-
-**Suppression hygiene**
-- Any new `# nosemgrep`, `# nosec`, `.gitleaksignore` line, `.semgrepignore` path, or
-  `paths-ignore` in CodeQL config without an adjacent justification. Flag every one; the
-  verifier decides if it's legitimate. Suppressions are the primary way a pipeline rots.
+- Runs as root; mutable base tag; secrets in build args or layers; dev-mode entrypoint;
+  ignore file that lets secrets, VCS metadata or tooling into the image.
 
 ## Severity
 
 | situation | severity |
 |---|---|
-| expression injection in `run:` on a workflow with write perms or secrets | critical |
-| `pull_request_target` + PR head checkout | critical |
-| unpinned third-party action | high |
-| over-broad `permissions` on a job handling secrets/OIDC | high |
-| gate loosened / scanner disabled / unjustified suppression | high |
-| sign job not depending on scan | high |
-| lock/requirements drift, root container, `latest` base | medium |
-| stale version comment on a correct SHA | low |
+| expression injection on a workflow with write permissions or secrets | critical |
+| privileged trigger executing untrusted code | critical |
+| verified signature or attestation subject mismatch with the built artifact | high |
+| unpinned third-party action or image | high |
+| over-broad permissions on a job holding secrets or OIDC | high |
+| gate loosened, scanner disabled, unjustified suppression | high |
+| manifest/lockfile drift, root container, mutable base tag | medium |
+| stale version comment on a correct digest | low |
 
 ## Evidence
 
-semgrep-actions or osv hit → deterministic. Structural facts you can verify with a command
-count too — run it and record it: `grep -n 'uses:' .github/workflows/*.yml | grep -v '@[0-9a-f]\{40\}'`
-→ `kind: reproduction`. Everything else is reasoning.
+Structural facts count as reproduction when you can state the command whose output
+demonstrates them; the verifier runs it. Example shape: a grep for `uses:` lines lacking a
+40-hex digest.
 
 ## Not findings
 
 - Files `repo-conventions.md` lists as policy-exempt, for being what they are.
-- SHA-pinned actions whose comment version you can't verify offline — note as `info`, don't
-  flag.
-- Suppressions **with** a justification comment that references a triage entry.
-
-## Output
-
-JSON array of `finding`, `class: "supply-chain-ci"`, ids `supply-chain-ci-<n>`.
+- Digest-pinned actions whose version comment you cannot verify offline: `info`.
+- Suppressions with a justification that references a tracked decision.

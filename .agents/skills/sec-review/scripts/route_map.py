@@ -139,11 +139,11 @@ def to_markdown(rows: list[dict]) -> str:
     return "# Route map\n\n" + head + "\n".join(lines) + note
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", type=Path)
     ap.add_argument("--md", type=Path)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     sys.path.insert(0, os.getcwd())
     from app.main import app  # deferred: must run inside the project env
