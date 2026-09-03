@@ -163,7 +163,7 @@ security:
           - action: allow
             path: /schmitthub/
           - action: allow
-            path: /repos/schmitthub/prodsec-challenge/   # REST on this repo (PR review replies etc.)
+            path: '~/repos/schmitthub/prodsec-challenge(/.*)?'   # REST on this repo incl. the bare repo object (security_and_analysis); regex so the no-trailing-slash form matches too
           - action: allow
             path: /graphql        # gh pr/repo/issue commands query GraphQL before their REST calls
             methods: [POST]
