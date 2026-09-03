@@ -163,6 +163,8 @@ security:
           - action: allow
             path: /schmitthub/
           - action: allow
+            path: /repos/schmitthub/prodsec-challenge/   # REST on this repo (PR review replies etc.)
+          - action: allow
             path: /graphql        # gh pr/repo/issue commands query GraphQL before their REST calls
             methods: [POST]
           - action: allow

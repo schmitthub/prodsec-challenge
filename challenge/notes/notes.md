@@ -56,8 +56,5 @@
 
 ## Sec nots
 
-- requirements.txt doesn't not have a lockfile meaning trans deps and actual will vary between environemnts and make supply chain security checks unreliable and reproducibility difficult. Fix: go with a manager like uv which i've done and committed the uv.lock file as part of the CI implementation. consider retiring requirements.txt once uv is fully adopted.uv.lock = what installs; requirements.txt scan = scanner's guess at graph, drifts both ways (hides click, invents idna, double counts pyjwt). Good triage-writeup ammo for retiring requirements.txt. Real open item from lock: click 8.1.8 (triage material, not fixing per scope).
 - needed to adjust gitleaks settings to detect secret in dev.py due to low entropy
-- wrote tests for broken access controls
-- Route-policy test (recommended). Import the app, walk app.routes, and for every route with a path parameter assert the handler declares an authorization dependency (e.g. Depends(authorize_record) or a role dep) or appears in an explicit exemption list with a reason. Deterministic, framework-level, no pattern matching. A new /records/{id}/attachments with no authz dep fails CI before any reviewer looks. It catches the variant they didn't seed because it checks the invariant, not the code shape. FP control is the exemption list, which is reviewable. Pairs with your existing negative-authz test as the regression artifact. Cost: you need one small shared authz dependency to exist so the check has something to assert on, which is also the real fix.
 - https://github.com/schmitthub/prodsec-challenge/pull/7 shows an example of brandit based alerts and warnings that can be dismissed

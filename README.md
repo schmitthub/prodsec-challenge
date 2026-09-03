@@ -1,5 +1,16 @@
 # Records API Security Take-Home
 
+> [!IMPORTANT]
+> **For Reviewers**
+>
+> - Local setup: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+> - Deliverables
+>   - [`Write-Up`](challenge/deliverables/write-up.md)
+>   - [`AI Security Review`](challenge/deliverables/ai-security-review.md)
+>   - [`AI Tools Usage`](challenge/deliverables/ai-usage.md)
+>   - [`Remediation Message`](challenge/deliverables/remediation-message.md)
+>
+
 This repository contains a small FastAPI service used for the Senior Product Security Engineer take-home.
 
 Start with `challenge/candidate-brief.md`.
