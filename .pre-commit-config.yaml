@@ -40,10 +40,12 @@ repos:
 
 - repo: local
   hooks:
-    # Both hooks run semgrep through .github/scripts/semgrep_gate.py, the same
-    # gate CI uses, so a commit blocks on exactly what the PR check blocks on
+    # Runs semgrep through .github/scripts/semgrep_gate.py, the same gate CI
+    # uses, so a commit blocks on exactly what the PR check blocks on
     # (ERROR/HIGH/CRITICAL; the rest is advisory). semgrep's own --severity
     # flag cannot express that (it drops HIGH/CRITICAL rules), hence the script.
+    # One hook for every file type: semgrep scopes rules by language itself, so
+    # the config list is the same one security.yml passes (keep them in sync).
     # Pin must match the semgrep/semgrep image tag in security.yml.
     - id: semgrep
       name: Semgrep SAST
@@ -51,24 +53,16 @@ repos:
       language: python
       additional_dependencies: ["semgrep==1.175.0"]
       types: [text]
-      exclude: ^\.github/workflows/
       args:
         - --config=p/default
         - --config=p/python
         - --config=p/security-audit
         - --config=p/owasp-top-ten
+        - --config=p/github-actions
+        - --config=.semgrep/github-actions.yaml
         - --skip-unknown-extensions
       # Scans the staged files on commit (pre-existing findings in untouched
       # files don't block unrelated commits); `prek run --all-files` = full scan.
-    - id: semgrep-actions
-      name: Semgrep GitHub Actions
-      entry: python .github/scripts/semgrep_gate.py
-      language: python
-      additional_dependencies: ["semgrep==1.175.0"]
-      files: ^\.github/workflows/.*\.ya?ml$
-      args:
-        - --config=p/github-actions
-        - --skip-unknown-extensions
 
 - repo: https://github.com/google/osv-scanner
   rev: c84fa4568f2526d0333e9a914ea8a0a5f74ad68b  # frozen: v2.5.1

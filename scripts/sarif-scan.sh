@@ -30,11 +30,8 @@ osv=$(tool osv-scanner "brew install osv-scanner")
 echo "semgrep $semgrep_version"
 uvx "semgrep==$semgrep_version" scan --quiet --metrics=off --disable-version-check \
   --config p/default --config p/python --config p/security-audit --config p/owasp-top-ten \
-  --exclude .github/workflows \
+  --config p/github-actions --config .semgrep/github-actions.yaml \
   --sarif-output "$out/semgrep.sarif" --json-output "$out/semgrep.json" .
-uvx "semgrep==$semgrep_version" scan --quiet --metrics=off --disable-version-check \
-  --config p/github-actions \
-  --sarif-output "$out/semgrep-actions.sarif" --json-output "$out/semgrep-actions.json" .github/workflows
 
 echo "bandit $bandit_version"
 uvx --from "bandit[toml,sarif]==$bandit_version" bandit -c pyproject.toml -r . -q \
