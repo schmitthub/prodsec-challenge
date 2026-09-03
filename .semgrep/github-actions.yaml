@@ -14,7 +14,7 @@ rules:
       on the setup-* action, drop `actions/cache`, or move the cached build to a
       `pull_request` job (PR-scoped cache, unreachable from main/release). If the
       cache is provably safe, add a justified
-      `# nosemgrep: pull-request-target-cache` on the `uses:` line.
+      `# nosemgrep: custom-pull-request-target-cache` on the `uses:` line.
     paths:
       include:
         - ".github/workflows/*.yml"
