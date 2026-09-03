@@ -39,7 +39,7 @@ clawker monitor down --volumes  # wipe data and re-seed on next up
 clawker claude dev
 
 # run codex image
-clawker codex dev  # use an alternative agent name if dev was used for the claude agent ie clawker codex codex creates an agent container named "codex"
+clawker codex dev  # use a different agent name if "dev" is already taken by the claude agent, e.g. `clawker codex codex` creates a container named "codex"
 ```
 
 > If you want to mount your host's docker socket for Docker Outside of Docker inside the agent container, copy [`.clawker.local.yaml.example`](.clawker.local.yaml.example) to `.clawker.local.yaml` (gitignored)
@@ -69,7 +69,7 @@ pre-commit run --all-files
 
 ### Local SARIF reports
 
-[`scripts/sarif-scan.sh`](scripts/sarif-scan.sh) runs the same scanners over the whole tree with **all severities, no gates, no baselines** and writes `.sarif/*.sarif` (gitignored). IDE's that support SARIF will pick up the reports automatically. The VS Code [SARIF Viewer](https://marketplace.visualstudio.com/items?itemName=MS-SarifVSCode.sarif-viewer) picks the directory up automatically for inline findings.
+[`scripts/sarif-scan.sh`](scripts/sarif-scan.sh) runs the same scanners over the whole tree with **all severities, no gates, no baselines** and writes `.sarif/*.sarif` (gitignored). IDEs that support SARIF will pick up the reports automatically. The VS Code [SARIF Viewer](https://marketplace.visualstudio.com/items?itemName=MS-SarifVSCode.sarif-viewer) extension detects the directory automatically and shows inline findings.
 
 ```bash
 prek run --all-files        # once: populates prek's cache with the gitleaks + osv-scanner binaries

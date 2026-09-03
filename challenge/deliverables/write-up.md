@@ -35,7 +35,7 @@ Local hooks catch issues before PR. CI is the enforcement point.
 - SQL injection and unsafe code patterns: Semgrep Python/security rules and CodeQL Python analysis.
 - Python security footguns: Bandit, gated on new high-severity findings.
 - Secrets: Gitleaks full-history scan with baseline, custom rules, and GitHub secret push protection.
-- Vulnerable dependencies: Dependency Review for changed dependencies, Dependabot PRs, osv-scanner scanning deterministicly using `uv.lock` and build images from `Dockerfile`.
+- Vulnerable dependencies: Dependency Review for changed dependencies, Dependabot PRs, osv-scanner scanning deterministically using `uv.lock` and build images from `Dockerfile`.
 - GitHub Actions risks: Semgrep Actions rules and CodeQL Actions analysis.
 - Release integrity: Syft SBOMs, cosign signatures, GitHub attestations, checksums, immutable tags, and branch/tag rulesets.
 - Human review gaps: required reviewers, Copilot review instructions, lazy loading agent memory files, and the security-review agent skill for logic/intent issues scanners miss.
@@ -53,9 +53,9 @@ The project needs to adopt more idiomatic python and FastAPI design patterns and
 - Better data model design. Stricter data contracts lead to fewer surprises, for example when returning data from API endpoints.
 - A real DB backend. Switching to an ORM like SQLModel will help manage database interactions more safely and efficiently. Migrations and fixtures can pre-seed the DB locally so that test users can be removed from source
 - A testing framework like pytest with fixtures, mocks, and generators for more robust testing opportunities.
-- Adopt a modern python package manager so that a lockfile can be persisted for deterministic builds and a dependency graph for scanners, I took the liberty of adding `uv` to improve scanner accuracy for the review but persisted `requirement.txt`.
+- Adopt a modern python package manager so that a lockfile can be persisted for deterministic builds and a dependency graph for scanners, I took the liberty of adding `uv` to improve scanner accuracy for the review but persisted `requirements.txt`.
 - For better broken access control detection use scope deps (e.g. `Depends(authorize_record)` or a role dep) is a better way to describe intent with self documenting code. Deterministic, framework-level, no pattern matching.
-- All secrets and configs need to be centeralized and env var backed. I like `pydantic-settings` it pairs nicely with FastAPI, but `python-dotenv` is a start.
+- All secrets and configs need to be centralized and env var backed. I like `pydantic-settings` it pairs nicely with FastAPI, but `python-dotenv` is a start.
 - Auth needs to be decoupled from the application and operate as a resource server. The JWT implementation will then need to be more robust and include properties like `aud`, `iss`, `resource` to ensure proper validation and security.
 - Implement comprehensive logging and monitoring to detect and respond to security incidents
 - Common oversight is making sure FastAPI's default /docs, /redocs, and /openapi.json endpoints are properly secured or disabled in production environments to prevent information leakage. This doesn't have to be at the app level and can be handled through reverse proxies or API gateways as well.
