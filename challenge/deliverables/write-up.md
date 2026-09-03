@@ -31,7 +31,7 @@
 
 Local hooks catch issues before PR. CI is the enforcement point.
 
-- All scans leverage diff scanning techniques, or baseline files to reduce noise and focus on new or changed code.
+- All scans leverage diff scanning techniques, or baseline files to reduce noise and focus on new or changed code. Sarif dumps are generated from each OSS scanner in CI and uploaded to GitHub Code Scanning for tracking
 - IDOR regressions: cross-user authorization invariant test fails if one member can read another member's protected resource.
 - Code defects (SQL injection, SSRF, unsafe patterns, hardcoded credentials): three SAST engines, layered deliberately because SAST tools are not interchangeable and each catches things the others miss. Bandit is Python-only, single-file, zero-config and fast; it remains the most reliable of the three at flagging hardcoded credential assignments in Python source, so it is gated on new HIGH findings. Semgrep is the fast per-PR gate with framework-aware Python rules and cheap YAML custom rules, which is where the custom `pull_request_target` cache rule lives; its community engine is intraprocedural only. CodeQL builds a whole-program database and does cross-function taint tracking, so it is the slower, deeper pass that runs on push, PR, and a weekly schedule and catches flows Semgrep cannot. Wiring all three up front is an à la carte offering: the team keeps what earns its place and turns down the rest.
 - Secrets: Gitleaks full-history scan with baseline, custom rules, and GitHub secret push protection / detection. Bandit also checks for low-entropy secrets in Python source.
