@@ -86,6 +86,7 @@ jobs:
             --config p/security-audit \
             --config p/owasp-top-ten \
             --config p/github-actions \
+            --config=.semgrep/github-actions.yaml \
             --metrics=off --disable-version-check \
             --sarif-output semgrep.sarif \
             --json-output semgrep.json
