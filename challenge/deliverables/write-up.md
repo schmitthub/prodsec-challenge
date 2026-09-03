@@ -27,30 +27,23 @@
 | No throttling or lockout on `POST /api/login` ([login.py:15](../../app/routes/login.py#L15)) | Low, track | Unlimited password guesses return an immediate 401 with no `Retry-After`. Brute-force protection is usually, and appropriately, handled at the edge (WAF, gateway, or ingress rate limiting), so this is not an application defect on its own. Worth tracking because a successful guess yields a token that never expires; application-layer account lockout is the next line of defense if edge controls are absent. |
 | No application logging or monitoring | Low, track | No request, authentication, or authorization events are logged anywhere in the app, and nothing is emitted for the exception handler beyond the response body. Not exploitable, but it means none of the findings above would be detected in production, incident response has nothing to reconstruct from, and the login and search abuse paths are invisible. Will be a pain point for any real deployment. |
 
-## Pipline Overview
+### Pipeline Capabilities
 
-The pipeline has local and remote variants. In practice I have experienced that developers greatly appreciate and achieve higher adoption, enthusiasm, and fix velocity when they can integrate the same or similar tooling into their local workflows. They are already running local toolchains for linting, testing, and static analysis, so adding security checks to this workflow minimizes context switching and encourages early detection and remediation of issues. The remote pipeline serves as a centralized enforcement and verification mechanism, ensuring consistency and catching any issues that might have been missed locally. The local pipeline is opt in only if they install `prek` or `pre-commit` and the git hooks. Local also has a convenience script for `prek` users to generate sarif files in `.sarif/` which most IDEs and sarif plugins will automatically pickup to give syntax highlighting and inline feedback for security issues. Some of what I did is duplicated between github
+Local hooks catch issues before PR. CI is the enforcement point.
 
-The stack contains:
-# TODO: this needs to be reduced to a concrete inventory of what can be detected
-- Cross user test invariant
-- semgrep for static analysis
-- bandit for static analysis
-- osv-scanner for python dependency and container vulnerability scanning
-- gitleaks for secret detection
-- codeql runs in CI as well, custom configuration committed for tuning analysis behavior
-- Tag for release workflow (git trunk, for a gitflow or other strat this would be adapted) that uses syft and cosign to generate signed SBOMs and release artifacts. I also included github attestations for SLSLA 3-esque attestation. Build provenance is important for supply chain security. CD gates can enforce verification of these artifacts before deployment and ensure the build artifacts came from the CI environment instead of being circumvented by a malicious actor (axios is a recent example of what this could have mitigated)
-- Github Advanced Security secrets push rejection
-- Dependabot for automated dependency updates with custom configuration file committed for tuning dependency update behavior. Opens PRs for python, docker, and GitHub Actions workflows.
-- Immutable tagging
-- Tag and branch rulesets to require reviewers, commit signing, and control merge strategies included
-- Git copilot code review instructions
-- A harness agnostic loose agent skill for tailored security reviews
+- IDOR regressions: cross-user authorization invariant test fails if one member can read another member's protected resource.
+- SQL injection and unsafe code patterns: Semgrep Python/security rules and CodeQL Python analysis.
+- Python security footguns: Bandit, gated on new high-severity findings.
+- Secrets: Gitleaks full-history scan with baseline, custom rules, and GitHub secret push protection.
+- Vulnerable dependencies: Dependency Review for changed dependencies, Dependabot PRs, osv-scanner scanning deterministicly using `uv.lock` and build images from `Dockerfile`.
+- GitHub Actions risks: Semgrep Actions rules and CodeQL Actions analysis.
+- Release integrity: Syft SBOMs, cosign signatures, GitHub attestations, checksums, immutable tags, and branch/tag rulesets.
+- Human review gaps: required reviewers, Copilot review instructions, and the security-review agent skill for logic/intent issues scanners miss.
 
 ### Pipeline Gaps
 
-- The pipeline is intentionally stacked with different static analysis tools since they can all shine in different areas and offer complementary coverage, reducing the likelihood of missing security issues. But static analysis is a labor of love and can't know intent. So the intent is not to exhaust, its to provide a team with options
-- The SCA tooling cannot detect reachability, but some enterprise solutions do couple their SCA with static analysis to achieve this
+- The pipeline is intentionally stacked with different static analysis tools since they can all shine in different areas and offer complementary coverage. But static analysis is a labor of love and can't know design intent. This is mitigated with agentic AI skills and instructions.
+- The SCA tooling cannot detect reachability. AI can assist here as well.
 
 ## Next Steps
 
