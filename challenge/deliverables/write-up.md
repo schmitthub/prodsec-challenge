@@ -32,19 +32,21 @@
 Local hooks catch issues before PR. CI is the enforcement point.
 
 - IDOR regressions: cross-user authorization invariant test fails if one member can read another member's protected resource.
-- SQL injection and unsafe code patterns: Semgrep Python/security rules and CodeQL Python analysis.
-- Python security footguns: Bandit, gated on new high-severity findings.
-- Secrets: Gitleaks full-history scan with baseline, custom rules, and GitHub secret push protection.
-- Vulnerable dependencies: Dependency Review for changed dependencies, Dependabot PRs, osv-scanner scanning deterministically using `uv.lock` and build images from `Dockerfile`.
-- GitHub Actions risks: Semgrep Actions rules and CodeQL Actions analysis.
-- Release integrity: Syft SBOMs, cosign signatures, GitHub attestations, checksums, immutable tags, and branch/tag rulesets.
-- Human review gaps: required reviewers, Copilot review instructions, lazy loading agent memory files, and the security-review agent skill for logic/intent issues scanners miss.
+- Code defects (SQL injection, SSRF, unsafe patterns, hardcoded credentials): three SAST engines, layered deliberately because SAST tools are not interchangeable and each catches things the others miss. Bandit is Python-only, single-file, zero-config and fast; it remains the most reliable of the three at flagging hardcoded credential assignments in Python source, so it is gated on new HIGH findings. Semgrep is the fast per-PR gate with framework-aware Python rules and cheap YAML custom rules, which is where the custom `pull_request_target` cache rule lives; its community engine is intraprocedural only. CodeQL builds a whole-program database and does cross-function taint tracking, so it is the slower, deeper pass that runs on push, PR, and a weekly schedule and catches flows Semgrep cannot. Wiring all three up front is an à la carte offering: the team keeps what earns its place and turns down the rest.
+- Secrets: Gitleaks full-history scan with baseline, custom rules, and GitHub secret push protection / detection. Bandit also checks for low-entropy secrets in Python source.
+- Dependency Scanning: Dependency Review Action for dependency changes, and will raise an error if any vulnerabilities or invalid licenses are being introduced, Dependabot PRs with customizable committed config, osv-scanner scanning deterministically using `uv.lock` and build images from `Dockerfile`.
+- GitHub Actions risks: Semgrep Actions rules and CodeQL Actions analysis. Including custom check for detecting `pull_request_target` cache misuse.
+- Release integrity: Syft SBOMs, cosign signatures, GitHub attestations, checksums, immutable tags, and branch/tag rulesets, signed commits.
+- Human review gaps: required reviewers, Copilot review instructions, lazy loading agent memory files, and the security-review agent skill for logic/intent issues scanners miss
+- Dependency update cooldowns to mitigate novel package vulnerabilities
 
 ### Pipeline Gaps
 
-- The pipeline is intentionally stacked with different static analysis tools since they can all shine in different areas and offer complementary coverage. But static analysis is a labor of love and can't know design intent. This is mitigated with agentic AI skills and instructions.
-- The SCA tooling cannot detect reachability. AI can assist here as well.
-- gitleaks secrets detection thresholds are set to lower noise, but will miss lower entropy password assignments, bandit does a decent job of assisting here but only for python code.
+- Static analysis cannot know design intent or catch insecure business logic. For example the IDOR is syntactically identical to correct code minus one ownership check.
+- The SCA tooling cannot detect reachability.
+- Gitleaks entropy thresholds are tuned to lower noise, so low-entropy password assignments slip past it. Bandit covers that gap, but only for Python source.
+- There is no DAST or fuzzing in place to catch runtime vulnerabilities and unexpected behavior.
+- Malicious dependencies
 
 ## Next Steps
 
@@ -56,6 +58,6 @@ The project needs to adopt more idiomatic python and FastAPI design patterns and
 - Adopt a modern python package manager so that a lockfile can be persisted for deterministic builds and a dependency graph for scanners, I took the liberty of adding `uv` to improve scanner accuracy for the review but persisted `requirements.txt`.
 - For better broken access control detection use scope deps (e.g. `Depends(authorize_record)` or a role dep) is a better way to describe intent with self documenting code. Deterministic, framework-level, no pattern matching.
 - All secrets and configs need to be centralized and env var backed. I like `pydantic-settings` it pairs nicely with FastAPI, but `python-dotenv` is a start.
-- Auth needs to be decoupled from the application and operate as a resource server. The JWT implementation will then need to be more robust and include properties like `aud`, `iss`, `resource` to ensure proper validation and security.
+- Auth ideally should be decoupled as a separate centralized authorization service, with records api operating as a resource server. The JWT implementation will then need to be more robust and include properties like `aud`, `iss`, `jit` to ensure proper validation and security. `pyjwt` must be patched at that time to mitigate the JWKS vulnerabilities.
 - Implement comprehensive logging and monitoring to detect and respond to security incidents
 - Common oversight is making sure FastAPI's default /docs, /redocs, and /openapi.json endpoints are properly secured or disabled in production environments to prevent information leakage. This doesn't have to be at the app level and can be handled through reverse proxies or API gateways as well.
