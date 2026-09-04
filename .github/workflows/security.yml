@@ -87,6 +87,7 @@ jobs:
             --config p/owasp-top-ten \
             --config p/github-actions \
             --config=.semgrep/github-actions.yaml \
+            --config=.semgrep/fastapi-access-control.yaml \
             --metrics=off --disable-version-check \
             --sarif-output semgrep.sarif \
             --json-output semgrep.json

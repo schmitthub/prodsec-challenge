@@ -60,6 +60,7 @@ repos:
         - --config=p/owasp-top-ten
         - --config=p/github-actions
         - --config=.semgrep/github-actions.yaml
+        - --config=.semgrep/fastapi-access-control.yaml
         - --skip-unknown-extensions
       # Scans the staged files on commit (pre-existing findings in untouched
       # files don't block unrelated commits); `prek run --all-files` = full scan.

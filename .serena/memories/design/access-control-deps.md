@@ -1,6 +1,19 @@
 # Design: type-bound access control deps (proposal, not implemented)
 
-Status: design agreed in conversation 2026-09-04, nothing built. Branch at the time: `refactor/for-funsies`.
+Status: step 1 implemented 2026-09-04 on `refactor/for-funsies` (uncommitted at time of writing): `Scope`/`Access`/`__access__` in
+`app/models.py`; loaders, `PolicyRouter`, `require`, `StaffUser`, `PUBLIC` in `app/api/deps.py`; four route modules converted;
+`get_current_staff_user`, stale `RecordDep`, inline role checks and `SessionDep`-in-routes removed; `tests/api/test_policy_router.py`
+covers the boot-time guarantees. Deviations from the design below: the response cross-check is *subset* (response type's read scope must be
+granted by the signature), not equality, because `AnyOwner[Record]` legitimately grants more than `RecordPublic` needs; notes share
+`RECORD_ACCESS` (no separate notes scopes); `Scope` has only `records:read`, `records:read:any`, `webhooks:preview`, `role:staff`.
+Step 2 implemented: `.semgrep/fastapi-access-control.yaml` (10 rules, ids `fastapi-*`) + fixture `.semgrep/fastapi-access-control.py`,
+wired into `.pre-commit-config.yaml` and `security.yml` config lists. Rule ids differ slightly from the table below
+(router-not-policy-router, route-session-param, route-model-param-unwrapped, route-foreign-dependency, require-string-scope,
+inline-role-check, route-raises-403, route-raw-row-to-response [taint], route-path-model-mismatch [WARNING], escape-hatch [WARNING]).
+`semgrep --test` needs absolute paths on 1.175 (relative crashes with IndexError); no hook runs the fixture, it is a documented command.
+Table-model list is a hardcoded regex in two rules; extend when a table is added. Steps 3-5 remain.
+Test caveat: from inside the clawker container the compose Postgres is not reachable on localhost; run the suite the way the prek hook does:
+`docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh`.
 Goal: make broken access control (wrong owner scope, wrong role, wrong data type on a route) structurally
 hard and mechanically detectable, not just "missing auth". Lint (semgrep) is fast feedback on a
 convention; the guarantees come from the router, the loaders and the DB.

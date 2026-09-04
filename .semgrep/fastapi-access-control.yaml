@@ -1,0 +1,201 @@
+# Access-control conventions for app/api/routes/.
+#
+# Every rule here is a *shape* check on the vocabulary defined in app/api/deps.py
+# (PolicyRouter, Owned/AnyOwner/OwnedQuery, require(), PUBLIC). None of them tries
+# to understand what a dependency does; PolicyRouter and the loaders are the
+# guarantee, these rules are the fast, in-editor and pre-commit feedback on top.
+# Fixture with ruleid/ok markers: fastapi-access-control.py next to this file
+# (`semgrep --test --config .semgrep/fastapi-access-control.yaml .semgrep/`).
+rules:
+  - id: fastapi-router-not-policy-router
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Route modules must build their router with `PolicyRouter` from
+      `app.api.deps`, never `APIRouter`. PolicyRouter is what injects identity
+      on every non-PUBLIC route and rejects contradictory declarations at
+      import; an APIRouter silently skips all of that.
+    paths:
+      include: ["app/api/routes/*.py"]
+    pattern: APIRouter(...)
+
+  - id: fastapi-route-session-param
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Routes never receive a database session; only the `PUBLIC` login route
+      may. Fetch rows through `Owned[Model]`, `AnyOwner[Model]` or
+      `OwnedQuery[Model]` so the owner filter comes from the model's
+      `__access__` instead of the route body.
+    paths:
+      include: ["app/api/routes/*.py"]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @$ROUTER.$METHOD(...)
+              def $F(..., $P: SessionDep, ...): ...
+          - pattern: |
+              @$ROUTER.$METHOD(...)
+              def $F(..., $P: Session, ...): ...
+          - pattern: |
+              @$ROUTER.$METHOD(...)
+              def $F(..., $P: Annotated[Session, ...], ...): ...
+      - pattern-not: |
+          @$ROUTER.$METHOD(..., dependencies=[..., PUBLIC, ...], ...)
+          def $F(...): ...
+      - focus-metavariable: $P
+
+  - id: fastapi-route-model-param-unwrapped
+    languages: [python]
+    severity: ERROR
+    message: >-
+      `$P` is a table model in a route signature without an access marker.
+      Wrap it: `Owned[$MODEL]` (caller's row), `AnyOwner[$MODEL]` (owner or
+      `read_any` holder) or `OwnedQuery[$MODEL]` (caller's rows). A bare model
+      parameter is a request-body parse, not an authorized row.
+    paths:
+      include: ["app/api/routes/*.py"]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @$ROUTER.$METHOD(...)
+              def $F(..., $P: $MODEL, ...): ...
+          - pattern: |
+              @$ROUTER.$METHOD(...)
+              def $F(..., $P: Annotated[$MODEL, ...], ...): ...
+      - metavariable-regex:
+          metavariable: $MODEL
+          # Table models. Extend when a table is added to app/models.py.
+          regex: ^(Record|RecordNote|User)$
+      - focus-metavariable: $P
+
+  - id: fastapi-route-foreign-dependency
+    languages: [python]
+    severity: ERROR
+    message: >-
+      `dependencies=[...]` on a route may only contain `require(Scope...)` or
+      `PUBLIC` from `app.api.deps`. `$DEP` is neither: a wrapper or a raw
+      `Depends(...)` cannot be checked by this rule or cross-checked by
+      PolicyRouter, so it is refused regardless of what it does.
+    paths:
+      include: ["app/api/routes/*.py"]
+    patterns:
+      - pattern: |
+          @$ROUTER.$METHOD(..., dependencies=[..., $DEP, ...], ...)
+          def $F(...): ...
+      - focus-metavariable: $DEP
+      - metavariable-regex:
+          metavariable: $DEP
+          regex: ^(?!require\()(?!PUBLIC$).*
+
+  - id: fastapi-require-string-scope
+    languages: [python]
+    severity: ERROR
+    message: >-
+      `require()` takes `Scope` members, not strings. A literal cannot be
+      checked against the vocabulary and a typo silently grants nothing or
+      everything.
+    paths:
+      include: ["app/**/*.py"]
+    pattern: require(..., "...", ...)
+
+  - id: fastapi-inline-role-check
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Role checks live only in `app/api/deps.py` (`ROLE_SCOPES`, `require`,
+      `StaffUser`, `AnyOwner`). An inline `.role` comparison is policy that
+      PolicyRouter cannot see or cross-check.
+    paths:
+      include: ["app/**/*.py"]
+      exclude: ["app/api/deps.py"]
+    pattern-either:
+      - pattern: $X.role == $Y
+      - pattern: $X.role != $Y
+      - pattern: $X.role in $Y
+      - pattern: $X.role not in $Y
+
+  - id: fastapi-route-raises-403
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Only `app/api/deps.py` may answer 403. A route that raises 403 itself is
+      doing authorization in the body, and for object access it must stay 404
+      so a foreign row is indistinguishable from a missing one.
+    paths:
+      include: ["app/api/routes/*.py"]
+    pattern-either:
+      - pattern: HTTPException(403, ...)
+      - pattern: HTTPException(..., status_code=403, ...)
+      - pattern: HTTPException(..., status_code=status.HTTP_403_FORBIDDEN, ...)
+      - pattern: HTTPException(status.HTTP_403_FORBIDDEN, ...)
+
+  - id: fastapi-route-raw-row-to-response
+    languages: [python]
+    severity: ERROR
+    mode: taint
+    message: >-
+      A row loaded directly (`session.get`/`select`/`session.exec`) reaches a
+      response without passing through an access loader. Use `Owned`,
+      `AnyOwner` or `OwnedQuery` so the caller's ownership and scope are
+      checked before the row exists in the route.
+    paths:
+      include: ["app/api/routes/*.py"]
+    pattern-sources:
+      - pattern-either:
+          - patterns:
+              - pattern: $S.get($MODEL, ...)
+              - metavariable-regex:
+                  metavariable: $MODEL
+                  regex: ^(Record|RecordNote|User)$
+          - pattern: $S.exec(...)
+          - pattern: select(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              @$ROUTER.$METHOD(...)
+              def $F(...): ...
+          - pattern-either:
+              - pattern: return $X
+              - pattern: $PUBLIC_MODEL(..., data=$X, ...)
+          - focus-metavariable: $X
+
+  - id: fastapi-route-path-model-mismatch
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Route path `$PATH` is under `/records` but loads `$MODEL`. Check the
+      marker names the resource the path refers to; copy-pasted signatures are
+      the usual cause.
+    paths:
+      include: ["app/api/routes/*.py"]
+    patterns:
+      - pattern: |
+          @$ROUTER.$METHOD("$PATH", ...)
+          def $F(..., $P: $WRAP[$MODEL], ...): ...
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: ^/records(/|$)
+      - metavariable-regex:
+          metavariable: $WRAP
+          regex: ^(Owned|AnyOwner|OwnedQuery)$
+      - metavariable-regex:
+          metavariable: $MODEL
+          regex: ^(?!Record$).*$
+      - focus-metavariable: $P
+
+  - id: fastapi-escape-hatch
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Escape hatch in use: this route opts out of the default access policy.
+      Never blocking, never silent. It must carry a justification in the
+      route walker's allowlist in tests/api/ and be reviewed by the owners of
+      app/api/deps.py.
+    paths:
+      include: ["app/api/routes/*.py"]
+    patterns:
+      - pattern: |
+          @$ROUTER.$METHOD(..., dependencies=[..., PUBLIC, ...], ...)
+          def $F(...): ...
+      - focus-metavariable: $F
