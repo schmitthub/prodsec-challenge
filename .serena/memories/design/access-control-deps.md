@@ -14,7 +14,12 @@ inline-role-check, route-raises-403, route-raw-row-to-response [taint], route-pa
 every rule file against its sibling fixture: `semgrep_gate.py` calls `test_rules()` before `run_semgrep()` in local mode (not in CI
 `--report` mode). User insisted on a hook, then rejected a *separate* hook: fold into the existing one, never add a hook when an existing
 one owns the concern.
-Table-model list is a hardcoded regex in two rules; extend when a table is added. Steps 3-5 remain.
+Table-model list is a hardcoded regex in two rules; extend when a table is added.
+Step 3 implemented: `app/api/policy.py` (walker over FastAPI 0.141's private `_IncludedRouter.effective_candidates()`; loaders
+tagged `__row_access__ = RowAccess(marker, model, param)`), snapshot `app/api/policy.json` (regenerate `uv run python -m app.api.policy`),
+`tests/api/test_route_policy.py` (one policy per route, `PUBLIC_ROUTES` allowlist with reasons, `NON_API_ROUTES`, snapshot diff) and
+`tests/api/test_access_matrix.py` (route x {anonymous, owner, other-member, staff}; expected 401/403/404/granted derived from declared
+policy; mutation check confirmed it fails when the loader's ownership check is disabled). Steps 4-5 remain.
 Test caveat: from inside the clawker container the compose Postgres is not reachable on localhost; run the suite the way the prek hook does:
 `docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh`.
 Goal: make broken access control (wrong owner scope, wrong role, wrong data type on a route) structurally

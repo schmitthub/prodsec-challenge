@@ -24,6 +24,23 @@ Composes the endpoint routers exposed by the application.
 
 - `api_router`: Aggregate `APIRouter` that includes, in order, `login.router`, `records.router`, `search.router`, and `webhooks.router`.
 
+### `policy.py`
+
+Reads the declared access policy back from the mounted app so tests can check it and diff it.
+
+- `SNAPSHOT`: Path of `policy.json` next to this module.
+- `RoutePolicy`: Frozen record of one `METHOD path`: `public`, `identity`, sorted `scopes`, and the `RowAccess` tuple its loaders grant. `key` is `"METHOD path"`; `as_json()` is `"PUBLIC"` or `{"scopes": [...], "rows": ["Owned[Record]", ...]}`.
+- `effective_routes(app)`: Yields `(method, path, dependant)` for every mounted route. Walks FastAPI 0.140+'s lazy `_IncludedRouter.effective_candidates()` tree (private API; pinned by `uv.lock`, guarded by `tests/api/test_route_policy.py`).
+- `_collect(dependant, scopes, rows, flags)`: Recursive dependency-tree walk marking `public` (`_anonymous`), `identity` (`get_current_user`), OAuth scopes, and `__row_access__` tags.
+- `route_policy(method, path, dependant)`: Builds one `RoutePolicy`.
+- `route_policies(app)`: All routes, sorted by key. `api_policies(app)`: only those under `settings.API_V1_STR`.
+- `policy_table(app)`: `{key: as_json()}` for the API routes; what `policy.json` stores.
+- `main()`: `python -m app.api.policy` rewrites `policy.json`. Run it after an intentional policy change; the snapshot test fails until you do.
+
+### `policy.json`
+
+Checked-in snapshot of `policy_table(app)`. A policy change shows up here in the PR diff. Regenerate with `uv run python -m app.api.policy`; never hand-edit.
+
 ### `deps.py`
 
 Defines the API's access-control vocabulary: session and identity dependencies, the role→scope table, typed row loaders, the public opt-out, and the router that enforces them.
@@ -53,6 +70,7 @@ Row access:
 - `PolicyError`: `TypeError` raised at import for contradictory or incomplete route declarations.
 - `access_of(model)`: Returns the model's `Access` or raises `PolicyError` when `__access__` is missing.
 - `ScopedRows[M]`: Query object bound to a session, model, and fixed filter tuple. `where(*clauses)` returns a narrower copy, `count()` and `page(skip, limit)` execute; the owner filter set at construction cannot be removed.
+- `RowAccess(marker, model, param)`: What a generated loader grants (`Owned`/`AnyOwner`/`OwnedQuery`, the model, the path parameter for single-row loaders). Attached to each loader as `__row_access__` for `policy.py`; `label` renders `Owned[Record]`.
 - `_RowMarker(widen)` / `_RowsMarker`: Annotated metadata recognised by `PolicyRouter`.
 - `Owned[M]`: One row owned by the caller; foreign and missing rows are both 404.
 - `AnyOwner[M]`: One row; the owner always passes, another caller passes only when holding `__access__.read_any`, otherwise 404. Using it on a type without `read_any` is a `PolicyError`.
@@ -60,7 +78,7 @@ Row access:
 - `_scope_param(scope)`: Builds the `Security`-annotated user parameter loaders use for their scope check.
 - `_verb_scope(model, verb)`: `read` or `write` scope from `__access__`; `PolicyError` when the verb has none.
 - `_row_loader(model, marker, verb)`: Builds the dependency behind `Owned`/`AnyOwner`. Its signature is generated (`session`, scope-checked `current_user`, `<tablename>_id: UUID`) so the path parameter name follows the model. Loads by primary key and applies the owner/widen rule.
-- `_rows_loader(model, verb)`: Builds the dependency behind `OwnedQuery`; returns `ScopedRows` filtered on `__access__.owner_field == current_user.id`.
+- `_rows_loader(model, verb)`: Builds the dependency behind `OwnedQuery`; returns `ScopedRows` filtered on `__access__.owner_field == current_user.id`. Both loaders carry a `__row_access__` tag.
 
 Router:
 

@@ -191,6 +191,20 @@ class ScopedRows(Generic[M]):
 
 
 @dataclass(frozen=True)
+class RowAccess:
+    """What a generated loader grants; attached to it as ``__row_access__`` so
+    ``app.api.policy`` can read a mounted route's row policy without parsing."""
+
+    marker: str  # "Owned" | "AnyOwner" | "OwnedQuery"
+    model: type[Any]
+    param: str | None  # path parameter name for single-row loaders
+
+    @property
+    def label(self) -> str:
+        return f"{self.marker}[{self.model.__name__}]"
+
+
+@dataclass(frozen=True)
 class _RowMarker:
     widen: bool  # False: owner only. True: owner, or anyone holding read_any.
 
@@ -246,6 +260,9 @@ def _row_loader(model: type[Any], marker: _RowMarker, verb: str) -> Callable[...
         ],
         return_annotation=model,
     )
+    load.__dict__["__row_access__"] = RowAccess(
+        marker="AnyOwner" if marker.widen else "Owned", model=model, param=row_param
+    )
     return load
 
 
@@ -268,6 +285,9 @@ def _rows_loader(model: type[Any], verb: str) -> Callable[..., Any]:
             inspect.Parameter("current_user", kw, annotation=_scope_param(scope)),
         ],
         return_annotation=ScopedRows[model],  # type: ignore[valid-type]
+    )
+    load.__dict__["__row_access__"] = RowAccess(
+        marker="OwnedQuery", model=model, param=None
     )
     return load
 

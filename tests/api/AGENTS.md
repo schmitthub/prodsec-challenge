@@ -2,7 +2,7 @@
 
 ## Directory summary
 
-This package tests cross-route HTTP security properties. `test_authz_invariant.py` derives its coverage from the live OpenAPI schema so newly added authenticated GET operations under the versioned API prefix are checked automatically. `test_policy_router.py` checks the import-time guarantees of `app.api.deps.PolicyRouter` on throwaway routers, without the database. Endpoint-specific behavior lives in `routes/` and has a more local guide.
+This package tests cross-route HTTP security properties. `test_authz_invariant.py` derives its coverage from the live OpenAPI schema so newly added authenticated GET operations under the versioned API prefix are checked automatically. `test_policy_router.py` checks the import-time guarantees of `app.api.deps.PolicyRouter` on throwaway routers, without the database. `test_route_policy.py` walks the mounted app's declared policy (exactly one policy per route, allowlisted escape hatches, snapshot equality with `app/api/policy.json`). `test_access_matrix.py` derives the expected status for every API route × principal from that declared policy and asserts the observed response agrees. Endpoint-specific behavior lives in `routes/` and has a more local guide.
 
 ## Files and symbols
 
@@ -23,6 +23,19 @@ This package tests cross-route HTTP security properties. `test_authz_invariant.p
   - `test_response_type_needs_scope_the_signature_grants` covers the response/signature cross-check.
   - `test_row_markers_require_access_declaration`, `test_owned_requires_owner_field`, `test_any_owner_requires_read_any_on_the_type`, `test_write_methods_need_a_write_scope` cover loader construction errors.
   - `test_unknown_role_grants_no_scopes` checks `scopes_for` on an unrecognised role string.
+- `test_route_policy.py` — declared-policy invariants over the mounted app, no database.
+  - `PUBLIC_ROUTES` maps each `METHOD path` that opts out of identity to its reason; must equal the set of PUBLIC routes exactly (no missing, no stale).
+  - `NON_API_ROUTES` is the allowlist of routes mounted outside the API prefix (`GET /health`).
+  - `test_walker_sees_the_api` guards the private FastAPI include API the walker relies on.
+  - `test_every_api_route_has_exactly_one_policy` rejects routes that are neither or both PUBLIC and identity-bearing.
+  - `test_public_routes_are_allowlisted_with_a_reason`, `test_row_loaders_require_a_scope`, `test_non_api_routes_are_known`.
+  - `test_policy_snapshot_matches` compares `policy_table(app)` with `app/api/policy.json` and names the regeneration command.
+- `test_access_matrix.py` — every API route × (anonymous, owner, other-member, staff).
+  - `Principal`, `PRINCIPALS` name the callers; owner is the seeded first member.
+  - `expected_status(policy, user, owner)` derives 401 / 403 / 404 / granted purely from the declared policy, `scopes_for`, and the model's `__access__`; "granted" is any status outside those three.
+  - `fill_path(policy, rows)` substitutes the owner's row ids into row-loader path parameters and fails on anything unfilled.
+  - `owner`, `owner_rows` fixtures load the owner and create one owned `Record`.
+  - `test_observed_status_matches_declared_policy` makes the request and asserts agreement; a loader that grants more or less than declared fails here.
 
 ## Child directories
 

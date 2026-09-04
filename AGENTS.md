@@ -24,6 +24,7 @@ docker compose up -d db                        # tests and app use real Postgres
 uv run bash scripts/prestart.sh                # wait for DB, migrate, seed local fixtures
 uv run pytest tests                            # full suite (what CI runs)
 uv run pytest tests/api/routes/test_records.py # one module
+uv run python -m app.api.policy                # regenerate app/api/policy.json after an intentional access-policy change (snapshot test fails until you do)
 uv run fastapi dev app/main.py                 # API on :8000, docs at /docs
 docker compose up --build                      # Postgres + prestart + API (+ Adminer/Traefik wiring)
 
@@ -42,6 +43,7 @@ Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`,
 
 - `app/main.py` — constructs the `FastAPI` application, configures CORS, mounts the versioned API router at `settings.API_V1_STR`, exposes `/health`, and handles otherwise-unhandled exceptions.
 - `app/api/deps.py` — the whole access-control vocabulary: session, bearer-token decoding, `CurrentUser`/`StaffUser`, role→scope table, the typed row loaders `Owned[Model]`/`AnyOwner[Model]`/`OwnedQuery[Model]`, the `PUBLIC` opt-out, and `PolicyRouter`, which wires those markers into dependencies, injects identity on every non-public route, forbids `Session` in route signatures, and raises `PolicyError` at import when a declaration is contradictory or a response type needs a scope the signature does not grant. Routes declare policy with these words only; they never query.
+- `app/api/policy.py` + `policy.json` — reads the declared policy of every mounted route back from the app (walks FastAPI's lazy include tree) and snapshots it; `tests/api/test_route_policy.py` diffs the snapshot and `tests/api/test_access_matrix.py` derives the expected status per route × principal from it and checks the live response.
 - `app/api/main.py` and `app/api/routes/` — router composition plus login, current-user, owner-scoped records/search, record notes, and staff-only webhook preview endpoints.
 - `app/core/config.py` — environment-backed `Settings`, CORS/host parsing, Postgres URL construction, and non-local secret validation.
 - `app/core/db.py` — SQLModel engine plus idempotent local fixture seeding; schema changes belong in `app/alembic/`.
