@@ -27,6 +27,7 @@ from app.api.deps import (
     get_current_user,
     require,
 )
+from app.core.db import engine
 from app.models import Record, RecordPublic, RecordsPublic, Scope, User
 
 # ruleid: fastapi-router-not-policy-router
@@ -52,6 +53,14 @@ def read_record_with_session(session: SessionDep, record_id: str) -> Any:
 # ruleid: fastapi-route-session-param
 def read_record_bare_session(session: Session, record_id: str) -> Any:
     return session.get(str, record_id)
+
+
+@router.get("/records/{record_id}")
+def opens_session(record_id: str) -> Any:
+    # ruleid: fastapi-route-opens-session
+    with Session(engine) as session:
+        # ruleid: fastapi-route-raw-row-to-response
+        return session.get(Record, record_id)
 
 
 @router.get("/records/{record_id}")

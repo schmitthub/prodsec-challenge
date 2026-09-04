@@ -45,6 +45,22 @@ rules:
           def $F(...): ...
       - focus-metavariable: $P
 
+  - id: fastapi-route-opens-session
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A route module reaches the database directly (`Session(...)`, `engine`,
+      or `get_db`). PolicyRouter only sees the signature, so this is the way
+      around the no-session rule; rows must come from a loader in
+      `app/api/deps.py`. Add a loader there instead.
+    paths:
+      include: ["app/api/routes/*.py"]
+    pattern-either:
+      - pattern: Session(...)
+      - pattern: engine
+      - pattern: get_db
+      - pattern: get_db(...)
+
   - id: fastapi-route-model-param-unwrapped
     languages: [python]
     severity: ERROR
