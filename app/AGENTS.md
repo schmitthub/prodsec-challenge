@@ -35,6 +35,9 @@ Defines request schemas, public response schemas, enums, and the three related S
 
 - `PreviewRequest`: Pydantic webhook-preview request with the `callback_url` field typed as `HttpUrl`.
 - `UserRole`: String enum with `member` and `staff` values.
+- `Scope`: `StrEnum` permission vocabulary: `records:read`, `records:read:any`, `webhooks:preview`, `role:staff`. Roles map to scopes in `app.api.deps.ROLE_SCOPES`.
+- `Access`: Frozen dataclass declared on models as `__access__`: `read` scope, optional `write` scope, `owner_field` (column holding the owning user's id), and optional `read_any` scope that permits cross-owner reads. Loaders and `PolicyRouter` in `app.api.deps` read it.
+- `RECORD_ACCESS`: `Access(read=records:read, owner_field="user_id", read_any=records:read:any)`; shared by every record and note type because a note is visible exactly when its record is.
 - `UserBase`: Shared user fields `email` (unique, indexed, max 255) and `role` (defaults to `UserRole.member`, max 50).
 - `User`: `user` table model adding UUID `id`, `hashed_password`, and the cascading `records` relationship to `Record`.
 - `UserCreate`: User creation schema adding an 8–128 character plaintext `password` to `UserBase` fields.
@@ -42,16 +45,16 @@ Defines request schemas, public response schemas, enums, and the three related S
 - `UsersPublic`: Paginated user collection with `data` (`list[UserPublic]`) and `count`.
 - `RecordType`: String enum whose current value is `lab_result`.
 - `RecordStatus`: String enum whose current value is `released`.
-- `RecordBase`: Shared record fields `type`, optional `summary` (max 255), and `status`.
+- `RecordBase`: Shared record fields `type`, optional `summary` (max 255), and `status`; carries `__access__ = RECORD_ACCESS`, inherited by `RecordCreate`, `Record`, and `RecordPublic`.
 - `RecordCreate`: Record creation schema; adds no fields beyond `RecordBase`.
 - `Record`: `record` table model. `__table_args__` enforces unique `(user_id, summary)` values; fields and relationships are UUID `id`, cascading foreign-key `user_id`, optional `user`, and cascading `notes`.
 - `RecordPublic`: Public record schema adding UUID `id` and `user_id` to `RecordBase` fields.
-- `RecordsPublic`: Paginated record collection with `data` (`list[RecordPublic]`) and `count`.
-- `RecordNoteBase`: Shared record-note field `note` (max 255).
+- `RecordsPublic`: Paginated record collection with `data` (`list[RecordPublic]`) and `count`; `__access__ = RECORD_ACCESS`.
+- `RecordNoteBase`: Shared record-note field `note` (max 255); `__access__ = RECORD_ACCESS`, inherited by `RecordNoteCreate`, `RecordNote`, and `RecordNotePublic`.
 - `RecordNoteCreate`: Record-note creation schema; adds no fields beyond `RecordNoteBase`.
 - `RecordNote`: `recordnote` table model. `__table_args__` enforces unique `(record_id, note)` values; fields and relationships are UUID `id`, cascading foreign-key `record_id`, and optional `record`.
 - `RecordNotePublic`: Public note schema adding UUID `id` and `record_id` to `RecordNoteBase` fields.
-- `RecordNotesPublic`: Notes-for-record response with `record_id`, `data` (`list[RecordNotePublic]`), and `count`.
+- `RecordNotesPublic`: Notes-for-record response with `record_id`, `data` (`list[RecordNotePublic]`), and `count`; `__access__ = RECORD_ACCESS`.
 - `Message`: Generic response schema with `message`.
 - `Token`: OAuth2 token response with `access_token`, `token_type` (default `bearer`), and `expires_in` seconds.
 - `TokenPayload`: Decoded JWT claims model with optional `sub`.

@@ -1,17 +1,17 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import Depends, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud
-from app.api.deps import SessionDep
+from app.api.deps import PUBLIC, PolicyRouter, SessionDep
 from app.core import security
 from app.core.config import settings
 from app.models import Token
 
-router = APIRouter(tags=["auth"])
+router = PolicyRouter(tags=["auth"])
 
 # RFC 6749 §5.1 / §5.2: responses that carry or concern tokens must not be cached.
 NO_STORE_HEADERS = {"Cache-Control": "no-store", "Pragma": "no-cache"}
@@ -19,6 +19,7 @@ NO_STORE_HEADERS = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 
 @router.post(
     "/login",
+    dependencies=[PUBLIC],
     response_model=Token,
     responses={
         400: {

@@ -41,12 +41,12 @@ Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`,
 ## App architecture
 
 - `app/main.py` — constructs the `FastAPI` application, configures CORS, mounts the versioned API router at `settings.API_V1_STR`, exposes `/health`, and handles otherwise-unhandled exceptions.
-- `app/api/deps.py` — shared SQLModel session, bearer-token decoding, current-user/staff dependencies, and the currently unused `RecordDep` bearer alias.
+- `app/api/deps.py` — the whole access-control vocabulary: session, bearer-token decoding, `CurrentUser`/`StaffUser`, role→scope table, the typed row loaders `Owned[Model]`/`AnyOwner[Model]`/`OwnedQuery[Model]`, the `PUBLIC` opt-out, and `PolicyRouter`, which wires those markers into dependencies, injects identity on every non-public route, forbids `Session` in route signatures, and raises `PolicyError` at import when a declaration is contradictory or a response type needs a scope the signature does not grant. Routes declare policy with these words only; they never query.
 - `app/api/main.py` and `app/api/routes/` — router composition plus login, current-user, owner-scoped records/search, record notes, and staff-only webhook preview endpoints.
 - `app/core/config.py` — environment-backed `Settings`, CORS/host parsing, Postgres URL construction, and non-local secret validation.
 - `app/core/db.py` — SQLModel engine plus idempotent local fixture seeding; schema changes belong in `app/alembic/`.
 - `app/core/security.py` — HS256 access-token creation and bcrypt password hashing/verification.
-- `app/models.py` — SQLModel table models, relationships, enums, request models, public response models, and token models.
+- `app/models.py` — SQLModel table models, relationships, enums, request models, public response models, token models, plus the `Scope` enum and `Access` declaration (`__access__` on record types) that the loaders and `PolicyRouter` read.
 - `app/crud.py` — user authentication/creation and record/note creation helpers.
 - `tests/` — pytest coverage for API behavior, access-control invariants, CRUD/security helpers, and database pre-start probes; tests use the real Postgres engine.
 

@@ -1,30 +1,21 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query
-from sqlmodel import col, func, select
+from fastapi import Query
+from sqlmodel import col
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import OwnedQuery, PolicyRouter
 from app.models import Record, RecordsPublic
 
-router = APIRouter(tags=["search"])
+router = PolicyRouter(tags=["search"])
 
 
 @router.get("/search", response_model=RecordsPublic)
 def search_records(
     q: Annotated[str, Query(min_length=1, max_length=255)],
-    current_user: CurrentUser,
-    session: SessionDep,
+    records: OwnedQuery[Record],
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
     """Case-insensitive substring search over the caller's own record summaries."""
-    filters = (
-        Record.user_id == current_user.id,
-        col(Record.summary).icontains(q, autoescape=True),
-    )
-    count_statement = select(func.count()).select_from(Record).where(*filters)
-    count = session.exec(count_statement).one()
-    statement = select(Record).where(*filters).offset(skip).limit(limit)
-    records = session.exec(statement).all()
-
-    return RecordsPublic(data=records, count=count)
+    matches = records.where(col(Record.summary).icontains(q, autoescape=True))
+    return RecordsPublic(data=matches.page(skip, limit), count=matches.count())

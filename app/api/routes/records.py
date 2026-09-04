@@ -1,10 +1,6 @@
-import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
-from sqlmodel import func, select
-
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import AnyOwner, CurrentUser, Owned, OwnedQuery, PolicyRouter
 from app.models import (
     Record,
     RecordNotesPublic,
@@ -13,7 +9,7 @@ from app.models import (
     UserPublic,
 )
 
-router = APIRouter(tags=["records"])
+router = PolicyRouter(tags=["records"])
 
 
 @router.get("/me", response_model=UserPublic)
@@ -23,52 +19,18 @@ def read_me(current_user: CurrentUser) -> Any:
 
 @router.get("/records", response_model=RecordsPublic)
 def list_my_records(
-    session: SessionDep, current_user: CurrentUser, skip: int = 0, limit: int = 100
+    records: OwnedQuery[Record], skip: int = 0, limit: int = 100
 ) -> Any:
-    count_statement = (
-        select(func.count())
-        .select_from(Record)
-        .where(Record.user_id == current_user.id)
-    )
-    count = session.exec(count_statement).one()
-    statement = (
-        select(Record)
-        .where(Record.user_id == current_user.id)
-        .offset(skip)
-        .limit(limit)
-    )
-    records = session.exec(statement).all()
-
-    return RecordsPublic(data=records, count=count)
+    return RecordsPublic(data=records.page(skip, limit), count=records.count())
 
 
 @router.get("/records/{record_id}", response_model=RecordPublic)
-def read_record(
-    session: SessionDep, current_user: CurrentUser, record_id: uuid.UUID
-) -> Any:
-    record = session.get(Record, record_id)
-    if not record or record.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
-        )
-
+def read_record(record: Owned[Record]) -> Any:
     return record
 
 
 @router.get("/records/{record_id}/notes", response_model=RecordNotesPublic)
-def read_record_notes(
-    session: SessionDep, current_user: CurrentUser, record_id: uuid.UUID
-) -> Any:
-    record = session.get(Record, record_id)
-    if not record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
-        )
-    if current_user.role != "staff" and record.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
-        )
-
+def read_record_notes(record: AnyOwner[Record]) -> Any:
     return RecordNotesPublic(
         record_id=record.id,
         data=record.notes,

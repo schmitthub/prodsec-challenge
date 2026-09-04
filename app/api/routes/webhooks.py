@@ -1,12 +1,12 @@
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import HTTPException, status
 from pydantic import HttpUrl
 
-from app.api.deps import get_current_staff_user
+from app.api.deps import PolicyRouter, require
 from app.core.config import settings
-from app.models import PreviewRequest
+from app.models import PreviewRequest, Scope
 
-router = APIRouter(tags=["webhooks"])
+router = PolicyRouter(tags=["webhooks"])
 
 FETCH_TIMEOUT_SECONDS = 2
 
@@ -29,7 +29,7 @@ def _fetch_allowed(url: HttpUrl) -> requests.Response:
     return requests.get(str(url), timeout=FETCH_TIMEOUT_SECONDS, allow_redirects=False)
 
 
-@router.post("/webhooks/vendor-preview", dependencies=[Depends(get_current_staff_user)])
+@router.post("/webhooks/vendor-preview", dependencies=[require(Scope.webhooks_preview)])
 def preview_vendor_webhook(request: PreviewRequest):
     try:
         response = _fetch_allowed(request.callback_url)
