@@ -53,6 +53,9 @@ repos:
       language: python
       additional_dependencies: ["semgrep==1.175.0"]
       types: [text]
+      # One invocation for the whole file list: semgrep parallelises itself,
+      # and the rule-fixture pass should run once, not once per batch.
+      require_serial: true
       args:
         - --config=p/default
         - --config=p/python
@@ -64,16 +67,9 @@ repos:
         - --skip-unknown-extensions
       # Scans the staged files on commit (pre-existing findings in untouched
       # files don't block unrelated commits); `prek run --all-files` = full scan.
-    # Runs every .semgrep/<name>.yaml against its sibling fixture with
-    # `semgrep --test`, so a rule edit that stops matching (or matches the
-    # `ok:` cases) fails the commit. Same pin and env as the scan hook.
-    - id: semgrep-rule-tests
-      name: Semgrep rule fixtures
-      entry: python .github/scripts/semgrep_test.py
-      language: python
-      additional_dependencies: ["semgrep==1.175.0"]
-      files: ^\.semgrep/
-      pass_filenames: false
+      # Before scanning, the script runs `semgrep --test` on every
+      # .semgrep/<name>.yaml that has a sibling fixture, so a rule edit that
+      # stops matching (or matches an `ok:` case) fails the commit.
 
 - repo: https://github.com/google/osv-scanner
   rev: c84fa4568f2526d0333e9a914ea8a0a5f74ad68b  # frozen: v2.5.1

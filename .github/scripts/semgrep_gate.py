@@ -9,10 +9,11 @@ severity. So the policy lives here, once, for both consumers.
 
 Usage:
   semgrep_gate.py --report semgrep.json         gate an existing JSON report (CI)
-  semgrep_gate.py <semgrep scan args> [files]   run semgrep, then gate (pre-commit)
+  semgrep_gate.py <semgrep scan args> [files]   test rule fixtures, run semgrep,
+                                                then gate (pre-commit)
 
 Exit 1 when a blocking finding exists, 0 otherwise; semgrep's own non-zero
-exit (bad config, crash) is passed through.
+exit (bad config, crash, failing rule fixture) is passed through.
 """
 
 import json
@@ -20,6 +21,9 @@ import os
 import subprocess  # nosec B404 - runs semgrep as an argv list, never a shell
 import sys
 import tempfile
+from pathlib import Path
+
+RULES_DIR = Path(".semgrep")
 
 BLOCKING = {"ERROR", "CRITICAL", "HIGH"}
 LEVEL = {
@@ -31,6 +35,30 @@ LEVEL = {
     "INFO": "notice",
     "LOW": "notice",
 }
+
+
+def test_rules() -> None:
+    """`semgrep --test` every .semgrep/<name>.yaml against its sibling fixture
+    (`.semgrep/<name>.<ext>`, any extension but yaml). Rule files without a
+    fixture are skipped. Paths are passed absolute: semgrep 1.175 raises
+    IndexError in --test when config and target are relative to the cwd."""
+    for rules in sorted(RULES_DIR.glob("*.yaml")):
+        for fixture in sorted(RULES_DIR.glob(f"{rules.stem}.*")):
+            if fixture.suffix in {".yaml", ".yml"}:
+                continue
+            cmd = [
+                "semgrep",
+                "--test",
+                "--metrics=off",
+                "--disable-version-check",
+                "--config",
+                str(rules.resolve()),
+                str(fixture.resolve()),
+            ]
+            rc = subprocess.run(cmd, check=False).returncode  # nosec B603 - fixed argv, no shell
+            if rc != 0:
+                print(f"rule fixture failed: {rules} vs {fixture}")
+                sys.exit(rc)
 
 
 def run_semgrep(args: list[str]) -> str:
@@ -87,6 +115,7 @@ def gate(report: str) -> int:
 def main(argv: list[str]) -> int:
     if argv[:1] == ["--report"]:
         return gate(argv[1])
+    test_rules()
     return gate(run_semgrep(argv))
 
 

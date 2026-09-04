@@ -2,10 +2,10 @@
 
 A comment naming a rule id with the "required finding" marker makes the next
 statement an expected match; the "non-finding" marker makes it an expected
-non-match. The `semgrep-rule-tests` prek hook runs this on every commit that
-touches .semgrep/:
+non-match. The semgrep prek hook runs this (via semgrep_gate.py) before every
+local scan:
 
-    prek run semgrep-rule-tests --all-files
+    prek run semgrep --all-files
 
 The rules scope themselves to app/api/routes/ via `paths`, which semgrep
 ignores in test mode, so this file is never a finding in a normal scan.
