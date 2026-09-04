@@ -1,2 +1,5 @@
 [features]
 hooks = true
+
+[mcp_servers.context7]
+startup_timeout_sec = 60

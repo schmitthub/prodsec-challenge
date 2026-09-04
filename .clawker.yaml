@@ -243,6 +243,16 @@ security:
             path: /upstash/context7/master/plugins/claude/context7/skills/context7-mcp/
         port: "443"
         proto: https
+      - action: allow
+        dst: release-assets.githubusercontent.com   # github.com/<org>/<repo>/releases/download/ 302s here (uv python install, prek tool downloads)
+        insecure_skip_tls_verify: false
+        path_default: deny
+        path_rules:
+          - action: allow
+            path: /github-production-release-asset/
+            methods: [GET, HEAD]
+        port: "443"
+        proto: https
   git_credentials:
     copy_git_config: true
     forward_gpg: true

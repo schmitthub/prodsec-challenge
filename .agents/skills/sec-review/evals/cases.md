@@ -20,15 +20,15 @@ verifier). Expected class is the reviewer that should own the finding.
 
 | id | class | where | expected severity | deterministic evidence available |
 |---|---|---|---|---|
-| S1 | access-control | `app/routes/records.py` `read_record`: no owner check | high | test client repro (member reads another member's record → 200); `tests/test_authz_invariant.py` fails |
-| S2 | access-control | `app/routes/search.py`: results not filtered to caller | high | repro; `tests/test_authz_invariant.py` |
-| S3 | injection | `app/db.py` `search_records`: f-string SQL | critical | semgrep/bandit hit; repro |
-| S4 | outbound-requests | `app/routes/webhooks.py`: GET to caller URL, no allowlist | high | semgrep/CodeQL; repro to a loopback URL |
-| S5 | secrets-crypto | `app/auth.py` hardcoded `JWT_SECRET` | high | gitleaks/semgrep hit |
-| S6 | authentication | `app/auth.py` `verify_exp: False` | high | semgrep if rule present; else reasoning |
-| S7 | authentication | `app/db.py` plaintext passwords | high | bandit maybe; reasoning |
-| S8 | data-exposure | `app/main.py` handler returns `repr(exc)` | medium | repro by forcing an exception |
-| S9 | outbound-requests or data-exposure | `app/routes/webhooks.py` echoes upstream body | high | repro |
+| S1 | access-control | `../../../../app/api/routes/records.py` `read_record`: no owner check | high | test client repro (member reads another member's record → 200); `../../../../tests/test_authz_invariant.py` fails |
+| S2 | access-control | `../../../../app/api/routes/search.py`: results not filtered to caller | high | repro; `../../../../tests/test_authz_invariant.py` |
+| S3 | injection | `../../../../app/core/db.py` `search_records`: f-string SQL | critical | semgrep/bandit hit; repro |
+| S4 | outbound-requests | `../../../../app/api/routes/webhooks.py`: GET to caller URL, no allowlist | high | semgrep/CodeQL; repro to a loopback URL |
+| S5 | secrets-crypto | `../../../../app/core/auth.py` hardcoded `JWT_SECRET` | high | gitleaks/semgrep hit |
+| S6 | authentication | `../../../../app/core/auth.py` `verify_exp: False` | high | semgrep if rule present; else reasoning |
+| S7 | authentication | `../../../../app/core/db.py` plaintext passwords | high | bandit maybe; reasoning |
+| S8 | data-exposure | `../../../../app/main.py` handler returns `repr(exc)` | medium | repro by forcing an exception |
+| S9 | outbound-requests or data-exposure | `../../../../app/api/routes/webhooks.py` echoes upstream body | high | repro |
 | S10 | supply-chain-ci | `Dockerfile` no `USER` | medium | structural grep |
 | S11 | supply-chain-ci | `requirements.txt` vs `uv.lock` drift | medium | diff of pins |
 
@@ -39,7 +39,7 @@ verifier). Expected class is the reviewer that should own the finding.
 | N1 | `GET /api/me` | identity from token only | reviewer scope |
 | N2 | `GET /api/records/{id}/notes` | owner check present | `control-exists` |
 | N3 | webhook staff gate | role gate on a role-wide action (the SSRF is a separate real finding) | `intended-shared-resource` |
-| N4 | `tests/test_records.py` credentials | fixture creds | `test-or-fixture-code` |
+| N4 | `../../../../tests/test_records.py` credentials | fixture creds | `test-or-fixture-code` |
 | N5 | redacted paths | only "file changed, review manually" allowed | redaction |
 | N6 | `test.yml` | policy-exempt | reviewer scope |
 | N7 | SHA-pinned actions | correct pattern | reviewer scope |

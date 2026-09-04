@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Senior Product Security Engineer take-home (brief: `challenge/candidate-brief.md`). `app/` is a **deliberately vulnerable** FastAPI "records API". The deliverable is not a fixed app — it is CI that protects it, one custom detection rule for a class off-the-shelf scanners miss (broken access control / IDOR), a triage writeup, a remediation message, `challenge/ai-security-review.md`, and an AI-usage note.
 
-**Do not patch seeded vulnerabilities in `app/` unless explicitly asked.** They are the subject of the exercise. Seeded issues (all intentional): IDOR in `GET /api/records/{record_id}` (`app/routes/records.py` — no owner check; compare `/notes` which has one), SQL string interpolation in `db.search_records`, SSRF in `POST /api/webhooks/vendor-preview`, `verify_exp: False` + hardcoded `JWT_SECRET` in `app/auth.py`, plaintext passwords in `db.USERS`, `repr(exc)` leaked by the global exception handler, fake secrets in `config/dev.py` and `helpers/fixture_secrets.py`.
+**Do not patch seeded vulnerabilities in `app/` unless explicitly asked.** They are the subject of the exercise. Seeded issues (all intentional): IDOR in `GET /api/records/{record_id}` (`app/api/routes/records.py` — no owner check; compare `/notes` which has one), SQL string interpolation in `db.search_records`, SSRF in `POST /api/webhooks/vendor-preview`, `verify_exp: False` + hardcoded `JWT_SECRET` in `app/core/auth.py`, plaintext passwords in `db.USERS`, `repr(exc)` leaked by the global exception handler, fake secrets in `config/dev.py` and `helpers/fixture_secrets.py`.
 
 ## Scenario Boundary (Non-negotiable)
 
@@ -38,9 +38,9 @@ Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`,
 ## App architecture
 
 - `app/main.py` — `FastAPI` app, mounts four routers under `/api`, `/health`, catch-all exception handler.
-- `app/auth.py` — HS256 JWT issue/verify; `get_current_user` is the auth dependency every protected route takes via `Annotated[User, Depends(get_current_user)]`. There is no authorization layer — each route does (or fails to do) its own ownership/role check.
-- `app/db.py` — no real database. `USERS`/`RECORDS` dicts; `search_records` builds a throwaway in-memory sqlite per call.
-- `app/routes/` — `login`, `records` (`/me`, `/records`, `/records/{id}`, `/records/{id}/notes`), `search` (`/search?q=`), `webhooks` (staff-only outbound GET to caller-supplied URL).
+- `app/core/auth.py` — HS256 JWT issue/verify; `get_current_user` is the auth dependency every protected route takes via `Annotated[User, Depends(get_current_user)]`. There is no authorization layer — each route does (or fails to do) its own ownership/role check.
+- `app/core/db.py` — no real database. `USERS`/`RECORDS` dicts; `search_records` builds a throwaway in-memory sqlite per call.
+- `app/api/routes/` — `login`, `records` (`/me`, `/records`, `/records/{id}`, `/records/{id}/notes`), `search` (`/search?q=`), `webhooks` (staff-only outbound GET to caller-supplied URL).
 - `app/models.py` — `User`, `TokenResponse` pydantic models.
 - `tests/test_records.py` — `unittest` + `fastapi.testclient`; module-level `login()`/`auth_headers()` helpers. Only happy paths are covered; no negative-authz tests.
 

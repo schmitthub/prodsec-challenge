@@ -4,13 +4,13 @@
 
 - [dev.py:1](../../config/dev.py#L1) hardcoded dev api key. switch to env var. recommendation leverage `python-dotenv` or `pydantic-settings`, commit sample .env file
 - [fixture_secrets.py:3](../../helpers/fixture_secrets.py#L3) secret import gate is brittle and will cause failures if pytest specifically isn't used, and it appears its not. it also should realistically moved to the test harness and be kept out of prod code entirely. also unused so recommend removing if not needed
-- [auth.py:11](../../app/auth.py#L11) `JWT_SECRET` hardcoded secret. use secrets.token_urlsafe(32) for dev environment, env var for prod. recommendation move to `pydantic-settings` or use `python-dotenv` with default fallback
-- [auth.py:34](../../app/auth.py#L34) `options={"verify_exp": False}` allows for infinite token validity with no way to revoke. recommendation to remove this option and enforce token expiration.
-- [webooks.py:25](../../app/routes/webhooks.py#L25) `PreviewRequest.callback_url` exposes SSRF and returns the response from the callback URL. recommendation use a whitelist enum
-- [login.py:18](../../app/routes/login.py#L18) user and password conditional is technically vuln to timing attacks but not sure if it's out of scope due to the DB being faked for the purpose of the challenge. if this is going to be kept then consider using a constant time comparison function such as `secrets.compare_digest`
-- [search.py:17](../../app/routes/search.py#L17) broken access control. only checks if user is authenticated, not if they have permission to access specific records. recommendation pass current user id to func and check against owner_user_id in DB
-- [db.py:78](../../app/db.py#L78) sql injection in search_records. need a sanitization function or use parameterized queries to prevent injection.
-- [records.py:27](../../app/routes/records.py#L27) broken access control. only checks if user is authenticated, not if they have permission to access specific records. recommendation pass current user id to func and check against owner_user_id in DB
+- [auth.py:11](../../app/core/auth.py#L11) `JWT_SECRET` hardcoded secret. use secrets.token_urlsafe(32) for dev environment, env var for prod. recommendation move to `pydantic-settings` or use `python-dotenv` with default fallback
+- [auth.py:34](../../app/core/auth.py#L34) `options={"verify_exp": False}` allows for infinite token validity with no way to revoke. recommendation to remove this option and enforce token expiration.
+- [webooks.py:25](../../app/api/routes/webhooks.py#L25) `PreviewRequest.callback_url` exposes SSRF and returns the response from the callback URL. recommendation use a whitelist enum
+- [login.py:18](../../app/api/routes/login.py#L18) user and password conditional is technically vuln to timing attacks but not sure if it's out of scope due to the DB being faked for the purpose of the challenge. if this is going to be kept then consider using a constant time comparison function such as `secrets.compare_digest`
+- [search.py:17](../../app/api/routes/search.py#L17) broken access control. only checks if user is authenticated, not if they have permission to access specific records. recommendation pass current user id to func and check against owner_user_id in DB
+- [db.py:78](../../app/core/db.py#L78) sql injection in search_records. need a sanitization function or use parameterized queries to prevent injection.
+- [records.py:27](../../app/api/routes/records.py#L27) broken access control. only checks if user is authenticated, not if they have permission to access specific records. recommendation pass current user id to func and check against owner_user_id in DB
 - [Dockerfile:15](../../Dockerfile#L15) runs as root user. recommendation to create a non-root user and switch to it in the Dockerfile for better security.
 - [main.py:26](../../app/main.py#L26) `repr(exc)` is leaking sensitive information to an attacker. recommendation to log the exception securely and return a generic error message to the client, or set env var so that its only displayed locally during development and generic in prod
 

@@ -8,7 +8,7 @@ Notable AI Contributions:
 
 - utilities under `scripts/`
 - agent skill `.agents/skills/sec-review`
-- access control test `tests/test_authz_invariant.py`
+- access control test `../../tests/test_authz_invariant.py`
 - The semgrep gate script at `.github/scripts/semgrep_gate.py`
 - Copilot instructions at `.github/instructions/python-security.instructions.md`
 - Most first drafts of documentation from my structured notes

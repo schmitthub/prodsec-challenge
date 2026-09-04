@@ -95,7 +95,7 @@ logger.warning(
 ## Missing Security Invariant Tests
 
 - When a feature adds or expands a trust boundary, protected resource, privileged operation, token flow, interpreter sink, outbound request, sensitive response, or security event, require the applicable negative invariant tests in addition to happy paths. Do not demand unrelated security tests.
-- For protected routes, test unauthenticated access, cross-user identifiers, disallowed roles, nested resources, and every state-changing method. New authenticated `GET` routes must remain covered by the OpenAPI-driven invariant in `tests/test_authz_invariant.py`; any exemption must be narrow and justified.
+- For protected routes, test unauthenticated access, cross-user identifiers, disallowed roles, nested resources, and every state-changing method. New authenticated `GET` routes must remain covered by the OpenAPI-driven invariant in `../../tests/test_authz_invariant.py`; any exemption must be narrow and justified.
 - For JWT changes, test malformed, invalid-signature, expired, missing-claim, wrong-issuer, and wrong-audience tokens as applicable. Assert generic 401 responses.
 - For injection-sensitive changes, prove adversarial input remains data rather than executable syntax. For outbound requests, mock network and DNS behavior and cover allowed hosts, loopback/private/link-local/metadata addresses, IPv6, redirects to blocked destinations, timeouts, and response-size limits.
 - For disclosure and logging changes, assert public responses omit internal details and use `unittest.TestCase.assertLogs` or a mocked logger to verify required events without secret or sensitive values.

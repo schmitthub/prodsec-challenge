@@ -1,5 +1,3 @@
-.git/
-.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -20,3 +18,12 @@ osv-scanner.toml
 challenge/
 tests/
 scripts/
+!scripts/prestart.sh
+
+# Python
+__pycache__
+app.egg-info
+.mypy_cache
+.coverage
+htmlcov
+.venv

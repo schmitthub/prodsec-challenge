@@ -79,10 +79,13 @@ repos:
 
 - repo: local
   hooks:
-    - id: unittest
+    - id: pytest
       name: Unit tests
-      # Same command as test.yml, run when app or test code changes.
-      entry: uv run python -m unittest discover -s tests
+      # Runs the pytest suite inside the compose backend container against the
+      # compose Postgres (the suite uses the real engine). app/, tests/ and
+      # scripts/ are mounted because the image ships neither tests nor the
+      # test scripts. Runs when app or test code changes.
+      entry: bash -c 'docker compose run --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh'
       language: system
       pass_filenames: false
       files: ^(app|tests)/.*\.py$

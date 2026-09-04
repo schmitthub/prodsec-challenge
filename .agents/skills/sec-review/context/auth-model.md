@@ -6,12 +6,12 @@ code disagrees with this file, that disagreement *is* a finding.
 ## Identity
 
 - `POST /api/login` → HS256 JWT (`app/auth.py: create_access_token`). Claim `sub` = user id.
-- `get_current_user` (`app/auth.py`) is the only authentication dependency. Every route
+- `get_current_user` (`../../../../app/core/auth.py`) is the only authentication dependency. Every route
   except `/health` and `/api/login` takes `Annotated[User, Depends(get_current_user)]`.
 - FastAPI also serves `/docs`, `/redoc`, `/openapi.json` unauthenticated (framework
   defaults, not in the route map). Known and accepted for a dev service; a reviewer may
   note it at `low`, not higher.
-- `User` (`app/models.py`) carries `id`, `email`, `role`. Roles: `member`, `staff`.
+- `User` (`../../../../app/models.py`) carries `id`, `email`, `role`. Roles: `member`, `staff`.
 - Known, tracked weaknesses in the identity layer are listed in `baseline.md` (verifier
   only). Reviewers report what they see; the verifier applies the baseline.
 
@@ -47,4 +47,4 @@ that the declaration is what's missing.
 - `GET /api/me` — no client-supplied id; identity comes from the token.
 - Lookups keyed only by `current_user.id` (e.g. `RECORDS_BY_OWNER[current_user.id]`).
 - A role gate on an action that has no per-tenant resource (webhooks).
-- Test fixtures under `tests/` and `helpers/` that hardcode credentials for the fake DB.
+- Test fixtures under `../../../../tests/` and `../../../../helpers/` that hardcode credentials for the fake DB.

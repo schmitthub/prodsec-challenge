@@ -14,9 +14,9 @@ portable and read this instead.
 
 - `.github/workflows/test.yml`: the seeded workflow; intentionally minimal, left untouched
   apart from SHA-pinning. Not a security workflow.
-- Seeded vulnerabilities in `app/` are the subject of the exercise and are **not fixed** on
+- Seeded vulnerabilities in `../../../../app/` are the subject of the exercise and are **not fixed** on
   purpose (see `AGENTS.md`). Report them; never suggest patching them.
-- `tests/`, `helpers/` fixture credentials for the in-memory fake DB.
+- `../../../../tests/`, `../../../../helpers/` fixture credentials for the in-memory fake DB.
 
 ## Test accounts (for the verifier's reproductions)
 
