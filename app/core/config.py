@@ -23,7 +23,7 @@ def parse_cors(v: Any) -> list[str] | str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file="../../.env",
+        env_file=".env",
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
     # Password shared by the local fixture accounts seeded in app.core.db.init_db.
-    SEED_PASSWORD: str = "changethis"
+    SEED_PASSWORD: str
 
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
@@ -79,9 +79,9 @@ class Settings(BaseSettings):
         )
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
-        if value == "changethis":
+        if value == "":
             message = (
-                f'The value of {var_name} is "changethis", '
+                f"The value of {var_name} is empty, "
                 "for security, please change it, at least for deployments."
             )
             if self.ENVIRONMENT == "local":

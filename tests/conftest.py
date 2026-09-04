@@ -9,9 +9,9 @@ from app.main import app
 from app.models import Record, RecordNote, User
 from tests.utils.user import seed_user_token_headers
 
-MEMBER_EMAIL = "alice@example.test"
-OTHER_MEMBER_EMAIL = "bob@example.test"
-STAFF_EMAIL = "clinician@example.test"
+MEMBER_EMAIL = "alice@example.com"
+OTHER_MEMBER_EMAIL = "bob@example.com"
+STAFF_EMAIL = "clinician@example.com"
 
 
 @pytest.fixture(scope="session", autouse=True)

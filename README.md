@@ -61,16 +61,16 @@ curl http://127.0.0.1:8000/health
 
 Use these accounts for local testing:
 
-- `alice@example.test` / `alice-password`
-- `bob@example.test` / `bob-password`
-- `clinician@example.test` / `clinician-password`
+- `alice@example.com` / `alice-password`
+- `bob@example.com` / `bob-password`
+- `clinician@example.com` / `clinician-password`
 
 Get a token with:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/login \
   -H 'content-type: application/json' \
-  -d '{"email":"alice@example.test","password":"alice-password"}'
+  -d '{"email":"alice@example.com","password":"alice-password"}'
 ```
 
 Then pass the returned token as a bearer token:

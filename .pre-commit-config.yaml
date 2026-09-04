@@ -85,7 +85,7 @@ repos:
       # compose Postgres (the suite uses the real engine). app/, tests/ and
       # scripts/ are mounted because the image ships neither tests nor the
       # test scripts. Runs when app or test code changes.
-      entry: bash -c 'docker compose run --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh'
+      entry: bash -c 'docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh'
       language: system
       pass_filenames: false
       files: ^(app|tests)/.*\.py$

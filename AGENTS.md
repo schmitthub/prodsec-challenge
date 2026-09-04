@@ -31,7 +31,7 @@ prek run semgrep --all-files                   # one hook by id
 scripts/sarif-scan.sh                         # full-tree SARIF for every scanner into .sarif/ (gitignored; VS Code SARIF Viewer auto-loads it) — all severities, baselines/gates not applied
 ```
 
-Test accounts: `alice@example.test`/`alice-password`, `bob@example.test`/`bob-password` (members), `clinician@example.test`/`clinician-password` (staff). Login `POST /api/login` → bearer token.
+Test accounts: `alice@example.com`/`alice-password`, `bob@example.com`/`bob-password` (members), `clinician@example.com`/`clinician-password` (staff). Login `POST /api/login` → bearer token.
 
 Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`, `core.hooksPath` overrides, and plumbing commits. Pre-commit hooks always run; don't route around them. `.codex/hooks/hooks.json` mirrors this for Codex.
 

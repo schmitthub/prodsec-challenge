@@ -27,7 +27,7 @@ header with a "/" in it (which is the whole point of the attack).
 Usage:
     uv run python scripts/badhost-probe.py
     uv run python scripts/badhost-probe.py --base-url http://localhost:8000
-    uv run python scripts/badhost-probe.py --email alice@example.test --password alice-password
+    uv run python scripts/badhost-probe.py --email alice@example.com --password alice-password
 
 Exit codes:
     0  probe ran and reached a conclusion (read the verdict text)
@@ -104,7 +104,7 @@ def reflected_path(body: bytes) -> str | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8000")
-    parser.add_argument("--email", default="alice@example.test")
+    parser.add_argument("--email", default="alice@example.com")
     parser.add_argument("--password", default="alice-password")
     args = parser.parse_args()
 
@@ -112,7 +112,9 @@ def main() -> int:
     host = parts.hostname or "localhost"
     port = parts.port or (443 if parts.scheme == "https" else 80)
     if parts.scheme == "https":
-        print("This probe speaks cleartext HTTP only; point it at the http:// listener.")
+        print(
+            "This probe speaks cleartext HTTP only; point it at the http:// listener."
+        )
         return 2
     normal_host = f"{host}:{port}"
 
@@ -190,7 +192,9 @@ def main() -> int:
         print("  Impact here is limited to the value reflected by the 500 handler —")
         print("  the app makes no authz/redirect decision on request.url, so this is")
         print("  not an authentication bypass. It becomes exploitable only if code is")
-        print("  later added that trusts request.url(.path). Fix: bump starlette>=1.0.1.")
+        print(
+            "  later added that trusts request.url(.path). Fix: bump starlette>=1.0.1."
+        )
     else:
         print("VERDICT  NOT EXPLOITABLE")
         print("  The Host header was accepted but the injected segment did NOT appear")

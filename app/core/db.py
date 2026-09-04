@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import email_validator
 from sqlmodel import Session, create_engine, select
 
 from app import crud
@@ -27,22 +26,22 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
 # Local-only fixture accounts. Password comes from settings.SEED_PASSWORD.
 SEED_USERS: list[dict] = [
-    {"email": "alice@example.test", "role": UserRole.member},
-    {"email": "bob@example.test", "role": UserRole.member},
-    {"email": "clinician@example.test", "role": UserRole.staff},
+    {"email": "alice@example.com", "role": UserRole.member},
+    {"email": "bob@example.com", "role": UserRole.member},
+    {"email": "clinician@example.com", "role": UserRole.staff},
 ]
 
 # Records keyed by owner email; notes keyed by record summary.
 SEED_RECORDS: list[dict] = [
     {
-        "owner_email": "alice@example.test",
+        "owner_email": "alice@example.com",
         "type": RecordType.lab_result,
         "status": RecordStatus.released,
         "summary": "A1C within expected range",
         "notes": ["Reviewed with patient", "Repeat in 6 months"],
     },
     {
-        "owner_email": "bob@example.test",
+        "owner_email": "bob@example.com",
         "type": RecordType.lab_result,
         "status": RecordStatus.released,
         "summary": "LDL elevated; follow-up recommended",
@@ -107,10 +106,6 @@ def init_db(session: Session) -> None:
 
     if settings.ENVIRONMENT != "local":
         return
-
-    # Fixture accounts live on the reserved .test TLD, which email-validator
-    # rejects outside test mode.
-    email_validator.TEST_ENVIRONMENT = True
 
     # Idempotent: every step is a lookup by natural key before insert, so a
     # partially or fully seeded database is left as-is.
