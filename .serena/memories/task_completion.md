@@ -1,16 +1,31 @@
 # Task completion checklist
 
-Run before declaring a task done:
+Use checks proportional to changed files; do not run fix-capable whole-tree commands for docs-only work.
 
+## Application/test changes
 ```bash
-uv run ruff check --fix . && uv run ruff format .
-uv run python -m unittest discover -s tests
-prek run --all-files          # gitleaks (baseline gitleaks-report.json), bandit, semgrep python+actions, osv-scanner, ruff, yaml/whitespace
+uv sync --frozen
+docker compose up -d db
+uv run bash scripts/prestart.sh
+uv run pytest tests
+uv run bash scripts/lint.sh
 ```
 
-- Touched `requirements.txt` or `pyproject.toml` deps → update the other + `uv lock`. Do not add scanners to the uv dev group.
-- Touched `.github/workflows/*` → `prek run semgrep --all-files` covers the actions hook; keep SHA pins + version comments.
-- Bumped a scanner in CI (`security.yml` semgrep image tag / `GITLEAKS_VERSION`) → bump the matching hook `rev` in `.pre-commit-config.yaml` (dependabot won't).
-- New accepted secret finding → regenerate `gitleaks-report.json` (`gitleaks git . --report-path gitleaks-report.json`), not `.gitleaksignore`.
-- Update `challenge/notes.md` status when a deliverable moves.
-- Commit via normal `git commit` so hooks run (bypass flags are blocked by a Claude hook). Claude commits its own work separately with the co-author trailer.
+## Repository gates
+```bash
+prek run --all-files
+```
+This may apply Ruff/whitespace fixes and runs compose-backed pytest when app/test Python is in scope; inspect all resulting edits.
+
+## Documentation-only changes
+- `git diff --check`.
+- Validate documented files/symbols against the current source.
+- For directory guides, verify every source-bearing directory has `AGENTS.md` and resolving relative `CLAUDE.md -> AGENTS.md`.
+
+## Conditional checks
+- Dependency edits: update `pyproject.toml` and `uv.lock`; scanners remain outside uv deps.
+- Workflow edits: run the Semgrep/actions hook; retain action SHA pins/comments and least permissions.
+- Scanner bumps: update CI/composite and matching pre-commit pin together.
+- Accepted secret baseline changes: regenerate redacted `gitleaks-report.json`; do not use ignore entries as a substitute.
+- Schema changes: add/test an Alembic migration and prove upgrade behavior.
+- Commit normally so repository hooks execute; never bypass them.

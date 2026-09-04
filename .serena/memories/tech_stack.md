@@ -1,9 +1,11 @@
 # Tech stack
 
-- Python **3.11** (`.python-version`, `requires-python >=3.11`); uv 0.12.x, `uv_build` backend
-- `pyproject.toml` + `uv.lock` = dependency source of truth; SBOM (syft `file:uv.lock`) and osv (`-L uv.lock`) read the lock. `requirements.txt` (same direct pins: fastapi 0.128.0, uvicorn 0.38.0, PyJWT 2.12.0, requests 2.31.0, httpx 0.27.0) remains only because README/Dockerfile pip-install from it; CI drift check keeps it equal; user's writeup recommends retiring it
-- uv `dev` group = ruff only. Security tooling is pre-commit-managed (prek runner, `uv tool install prek`): gitleaks 8.30.1, bandit 1.9.4 (`[tool.bandit]` in pyproject, skips B101), semgrep 1.156.0 (`semgrep/pre-commit` repo; pinning it in uv is impossible — its `mcp` dep needs httpx>=0.27.1 vs runtime httpx==0.27.0), osv-scanner 2.5.1 (golang hook). PyPI `osv-scanner` is a 0.0.1 placeholder — never use it.
-- Tests: stdlib `unittest` + `fastapi.testclient` (no pytest)
-- Container: `python:3.11-slim`, pip from `requirements.txt`, uvicorn on :8000
-- Supply chain tooling on host image: syft, cosign, gh (build-time installs in `.clawker.yaml`)
-- Semgrep CI image pinned by digest in `security.yml`; gitleaks CI pinned by `GITLEAKS_VERSION` + checksum; both must equal the hook `rev`s
+- Python 3.11 (`.python-version`; project supports `>=3.11`).
+- FastAPI 0.141+, Pydantic 2.13+, pydantic-settings, SQLModel 0.0.42+, SQLAlchemy via SQLModel, psycopg 3.3+, Alembic 1.19+, Postgres 17.
+- Auth/security: PyJWT 2.12 (HS256 + `exp`), bcrypt 5, OAuth2 password form. Outbound HTTP uses requests 2.31; tests also use httpx 0.27.
+- `pyproject.toml` + `uv.lock` are dependency truth. Dev group: coverage, mypy, pytest, ruff. `requirements.txt` and `Dockerfile.old` are legacy.
+- Tests: pytest + FastAPI TestClient against real Postgres; Coverage.py reporting.
+- Container: `python:3.11`, uv copied from `ghcr.io/astral-sh/uv:0.5.11`, lock-based sync, fixed unprivileged uid/gid 10001, `fastapi run --workers 4 app/main.py`.
+- Compose: Postgres, prestart migration/seed job, backend, and Adminer with external Traefik wiring.
+- Security tooling is prek-managed: Gitleaks 8.30.1, Bandit 1.9.4, Semgrep 1.175.0, OSV-Scanner 2.5.1. Keep CI/composite pins aligned with `.pre-commit-config.yaml`.
+- Release tooling: Syft SBOMs, Cosign keyless bundles, GitHub artifact attestations; image ships as a signed docker archive, not through a registry.

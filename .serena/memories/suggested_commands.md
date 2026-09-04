@@ -1,19 +1,23 @@
 # Commands
 
 ```bash
-uv sync                                        # always first in container (.venv is tmpfs, empty each start)
-uv run python -m unittest discover -s tests
-uv run python -m unittest tests.test_records.RecordsApiTests.test_health_check
-uv run uvicorn app.main:app --reload           # :8000, /docs
-docker build -t records-api . && docker run --rm -p 8000:8000 records-api
+uv sync --frozen
+docker compose up -d db
+uv run bash scripts/prestart.sh                 # DB wait, Alembic upgrade, local seed
+uv run pytest tests
+uv run pytest tests/api/routes/test_records.py
+uv run fastapi dev app/main.py                  # :8000, docs at /docs
+docker compose up --build
 
-uv run ruff check --fix . && uv run ruff format .
-prek run --all-files                           # all hooks: ruff, gitleaks, bandit, semgrep (python + actions), osv-scanner
-prek run <hook-id> --all-files                 # single hook (semgrep, bandit, gitleaks, osv-scanner)
+uv run bash scripts/lint.sh                     # strict mypy + Ruff check/format check on app
+uv run bash scripts/format.sh                   # Ruff fix/format app + scripts
+prek run --all-files                            # fixers, scanners, compose-backed pytest
+prek run semgrep --all-files
+scripts/sarif-scan.sh                           # full local SARIF, no gates/baselines
 ```
 
-Scanners are NOT uv deps — prek installs each from its pinned `rev` into its own cache. `uv run semgrep|bandit|osv-scanner` do not exist.
+Tests use real Postgres. The hook's pytest entry builds/runs the compose backend and mounts `app/`, `tests/`, and `scripts/`.
 
-Auth for manual API testing: `POST /api/login` `{"email","password"}` → bearer. Accounts: alice/bob (`member`), clinician (`staff`); password = `<name>-password`.
+Scanners are prek-managed, not uv dependencies. `uv run semgrep|bandit|osv-scanner` is not the supported path.
 
-GitHub from container: `gh issue`/`gh pr` (GraphQL) blocked by firewall; use REST `gh api repos/schmitthub/<repo>/...`.
+Local fixture users: Alice/Bob members and clinician staff; shared password is `SEED_PASSWORD`. Login uses form-encoded OAuth2 fields `username=<email>` and `password=<value>` at `POST /api/v1/login`.
