@@ -2,9 +2,10 @@
 
 A comment naming a rule id with the "required finding" marker makes the next
 statement an expected match; the "non-finding" marker makes it an expected
-non-match. Verify with absolute paths (semgrep 1.175 trips over relative ones):
+non-match. The `semgrep-rule-tests` prek hook runs this on every commit that
+touches .semgrep/:
 
-    semgrep --test --config "$PWD/.semgrep/fastapi-access-control.yaml" "$PWD/.semgrep/fastapi-access-control.py"
+    prek run semgrep-rule-tests --all-files
 
 The rules scope themselves to app/api/routes/ via `paths`, which semgrep
 ignores in test mode, so this file is never a finding in a normal scan.

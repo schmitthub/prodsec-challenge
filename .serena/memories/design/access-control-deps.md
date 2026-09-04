@@ -10,7 +10,8 @@ Step 2 implemented: `.semgrep/fastapi-access-control.yaml` (10 rules, ids `fasta
 wired into `.pre-commit-config.yaml` and `security.yml` config lists. Rule ids differ slightly from the table below
 (router-not-policy-router, route-session-param, route-model-param-unwrapped, route-foreign-dependency, require-string-scope,
 inline-role-check, route-raises-403, route-raw-row-to-response [taint], route-path-model-mismatch [WARNING], escape-hatch [WARNING]).
-`semgrep --test` needs absolute paths on 1.175 (relative crashes with IndexError); no hook runs the fixture, it is a documented command.
+`semgrep --test` needs absolute paths on 1.175 (relative crashes with IndexError); prek hook `semgrep-rule-tests`
+(`.github/scripts/semgrep_test.py`, files `^\.semgrep/`) runs every rule file against its sibling fixture. User insisted on a hook, not a documented command.
 Table-model list is a hardcoded regex in two rules; extend when a table is added. Steps 3-5 remain.
 Test caveat: from inside the clawker container the compose Postgres is not reachable on localhost; run the suite the way the prek hook does:
 `docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh`.
