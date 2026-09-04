@@ -235,3 +235,6 @@ __marimo__/
 
 # local scanner output (scripts/sarif-scan.sh) — SARIF embeds code snippets
 .sarif/
+
+# local agent-evaluation output
+.agents/skills/sec-review/evals/results/

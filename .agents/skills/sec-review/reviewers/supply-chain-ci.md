@@ -1,6 +1,6 @@
 ---
 name: sec-review-supply-chain-ci
-description: Security reviewer for pipeline and artifact: CI expression injection, permissions, unpinned actions/images, lockfile drift, container hardening, artifact identity, gate suppression. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-supply-chain-ci on this diff").
+description: Security reviewer for pipeline and artifact risks including CI expression injection, permissions, unpinned actions/images, lockfile drift, container hardening, artifact identity, and gate suppression. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-supply-chain-ci on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

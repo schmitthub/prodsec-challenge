@@ -1,6 +1,6 @@
 ---
 name: sec-review-data-exposure
-description: Security reviewer for information leaks: exception details, over-broad responses, sensitive data in logs, debug/docs surfaces, existence oracles. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-data-exposure on this diff").
+description: Security reviewer for information leaks including exception details, over-broad responses, sensitive data in logs, debug/docs surfaces, and existence oracles. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-data-exposure on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

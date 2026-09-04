@@ -1,6 +1,6 @@
 ---
 name: sec-review-business-logic
-description: Security reviewer for design-level abuse: workflow/state bypass, races and TOCTOU, replay and idempotency, client-trusted values, missing audit. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-business-logic on this diff").
+description: Security reviewer for design-level abuse including workflow/state bypass, races and TOCTOU, replay and idempotency, client-trusted values, and missing audit. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-business-logic on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

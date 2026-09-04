@@ -1,6 +1,6 @@
 ---
 name: sec-review-access-control
-description: Security reviewer for authorization flaws: IDOR, missing object/function-level checks, privilege escalation, mass assignment, tenant isolation. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-access-control on this diff").
+description: Security reviewer for authorization flaws including IDOR, missing object/function-level checks, privilege escalation, mass assignment, and tenant isolation. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-access-control on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

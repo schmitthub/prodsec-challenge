@@ -1,0 +1,24 @@
+{
+  "format": "sec-review-eval/v1",
+  "id": "cap-dry-run",
+  "tags": ["cost", "selection"],
+  "limits": {"runs": 1, "max_turns": 15, "timeout_seconds": 600},
+  "prompt": "prompt.md",
+  "setup": {"path": "setup.sh"},
+  "checks": [
+    {"id": "cap-and-cost", "kind": "rubric", "path": "graders/cap-and-cost.md"},
+    {
+      "id": "general-present",
+      "kind": "output_regex",
+      "pattern": "general",
+      "ignore_case": true
+    },
+    {
+      "id": "plan-printed",
+      "kind": "output_regex",
+      "pattern": "sec-review plan:",
+      "ignore_case": true
+    },
+    {"id": "no-agents", "kind": "agent_count", "max": 0}
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: sec-review-web-platform
-description: Security reviewer for browser/HTTP-layer controls: CORS, CSRF, cookies, security headers, host header trust, caching, XSS in rendered HTML. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-web-platform on this diff").
+description: Security reviewer for browser/HTTP-layer controls including CORS, CSRF, cookies, security headers, host header trust, caching, and XSS in rendered HTML. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-web-platform on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

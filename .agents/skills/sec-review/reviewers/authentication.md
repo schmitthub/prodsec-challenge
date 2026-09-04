@@ -1,6 +1,6 @@
 ---
 name: sec-review-authentication
-description: Security reviewer for identity and session flaws: missing auth on routes, token/session validation, password storage and comparison, enumeration and brute force. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-authentication on this diff").
+description: Security reviewer for identity and session flaws including missing auth on routes, token/session validation, password storage and comparison, enumeration, and brute force. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-authentication on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

@@ -1,48 +1,84 @@
-# Repo conventions: records-api
+# Repo conventions — records-api
 
-Maintained by hand. The only place repo-specific policy lives; reviewer prompts stay
-portable and read this instead.
+Use these repository decisions when reviewing. Do not replace them with generic hardening
+preferences. The root and nearest directory `AGENTS.md` files remain authoritative for project
+scope and local invariants.
 
-## Baselines
+## Application and test model
 
-- `baseline.md` (this directory): human-triaged findings. Listed there means **baselined**:
-  still real, still reported, `comment` not `block`. Verifier only.
-- `gitleaks-report.json`: redacted secret-scanner baseline; every consumer passes `--redact`.
-- `osv-scanner.toml`: dependency ignores, each with `reason` + `ignoreUntil`.
+- The service is FastAPI with SQLModel/PostgreSQL persistence and Alembic migrations. SQLModel
+  expressions are parameterized; select `injection` only for a real dynamic interpreter sink.
+- Python 3.11 or newer is supported; CI and the runtime image use 3.11.
+- `pyproject.toml` and `uv.lock` are the active direct and resolved dependency sources. The
+  lockfile is transitive and hash-pinned.
+- `requirements.txt` and `Dockerfile.old` are legacy artifacts. Their existence or drift is not
+  a finding unless a change makes an active build, test, SBOM, scan, or release consume them.
+- Tests use the real PostgreSQL engine. Security reproductions should reuse the supported pytest
+  fixtures or the application `TestClient`; outbound HTTP in tests must be monkeypatched.
+- Local fixture accounts are `alice@example.com`, `bob@example.com`, and
+  `clinician@example.com`. Their shared password comes from `settings.SEED_PASSWORD`; never print
+  its value.
 
-## Policy-exempt files (do not flag these for being what they are)
+## Baselines and suppressions
 
-- `.github/workflows/test.yml`: the seeded workflow; intentionally minimal, left untouched
-  apart from SHA-pinning. Not a security workflow.
-- Seeded vulnerabilities in `../../../../app/` are the subject of the exercise and are **not fixed** on
-  purpose (see `AGENTS.md`). Report them; never suggest patching them.
-- `../../../../tests/`, `../../../../helpers/` fixture credentials for the in-memory fake DB.
+- `context/baseline.md` contains human-triaged sec-review findings. Only the inline verifier reads
+  it. An entry remains real but cannot block unless the reviewed change regresses beyond it.
+- `gitleaks-report.json` is a redacted secret-scanner baseline. Every consumer must pass
+  `--redact`; do not reveal baseline matches.
+- `osv-scanner.toml` contains dependency ignores. Each valid ignore has a reason and a future
+  `ignoreUntil`; expired or unexplained ignores do not suppress a finding.
+- Do not accept `.gitleaksignore`, `# nosemgrep`, `# nosec`, gate-disabling
+  `continue-on-error`, or equivalent suppressions without a narrow, documented policy reason.
 
-## Test accounts (for the verifier's reproductions)
+## Authentication and HTTP contracts
 
-`alice@example.test`/`alice-password`, `bob@example.test`/`bob-password` (members),
-`clinician@example.test`/`clinician-password` (staff). Login `POST /api/login` returns a
-bearer token. Test client: `fastapi.testclient.TestClient(app.main.app)`.
+- Preserve owner scoping and identical 404 behavior for missing and foreign records.
+- Preserve non-enumerating login failures and `Cache-Control: no-store` / `Pragma: no-cache` on
+  both successful and rejected token responses.
+- Local exception details are deliberate only when `ENVIRONMENT=local`; staging and production
+  must receive the generic 500 detail.
+- API documentation and the health endpoint are intentionally public. Business routes are not.
+- The webhook preview is staff-only and may call only exact configured HTTPS hosts, with redirects
+  disabled, a fixed timeout, and a bounded response preview.
 
-## Conventions a reviewer should hold the repo to
+## Local and CI security tooling
 
-- Actions SHA-pinned with a `# vX.Y.Z` comment.
-- Tool versions pinned in two places that must match: `security.yml` /
-  `.github/actions/osv-image-scan/action.yml` and `.pre-commit-config.yaml`.
-- Findings are triaged into baselines with a reason, never silenced via `.gitleaksignore`,
-  `# nosemgrep`, `# nosec` or `continue-on-error` without an adjacent justification that
-  points at a baseline entry.
-- Two dependency surfaces exist (`requirements.txt` for README/Dockerfile/test.yml;
-  `uv.lock` for SBOM and the osv hook). Drift between them is tracked (`baseline.md` B10).
+- `.pre-commit-config.yaml` is run with `prek`. Security scanners live in their pinned hook
+  environments rather than the uv project, so scanner dependencies cannot constrain runtime pins.
+- The local and CI severity gates must agree: Bandit blocks HIGH; Semgrep is gated by
+  `.github/scripts/semgrep_gate.py` on `ERROR|HIGH|CRITICAL`; Gitleaks uses the redacted baseline;
+  OSV gates changed `uv.lock` content locally and dependency review covers additions on PRs.
+- Scanner versions are paired: Semgrep, Bandit, and Gitleaks pins in
+  `.github/workflows/security.yml` match `.pre-commit-config.yaml`; OSV-Scanner in
+  `.github/actions/osv-image-scan/action.yml` matches its pre-commit `rev`.
+- GitHub Actions and external action references are full-SHA pinned with version comments.
+- `scripts/sarif-scan.sh` intentionally writes all-severity local results to `.sarif/` without
+  applying CI gates or dependency ignores. The directory is gitignored.
 
-## Release topology (artifact identity, not job ordering)
+## CI and release topology
 
-`image.yml`: `build` produces one docker-archive and its image ID. Two independent
-consumers: `scan` (best-effort, advisory, may not block) and `sign` (release only, depends
-on `build` alone). `build.yml` then signs and attests the source archive, SBOMs and
-checksums, and copies in `image.yml`'s bundle for the image. No registry anywhere.
+- `.github/workflows/pr.yml` and `main.yml` are thin callers of reusable `test.yml` and
+  `security.yml`. Permissions are declared on calling jobs because reusable workflows do not
+  inherit workflow-level permissions.
+- `test.yml` starts PostgreSQL 17, installs from `uv.lock`, runs migrations and local seeding, then
+  executes the coverage-backed pytest suite.
+- `security.yml` uploads all-severity Semgrep and Bandit SARIF. PR gates consider only new
+  high-severity findings; main uploads without blocking. Gitleaks scans full history.
+- The image scan is deliberately advisory and best-effort. Do not flag release signing for
+  depending on `build` rather than `scan`.
+- `image.yml:build` creates one docker archive and image ID. `scan` and release-only `sign` consume
+  that exact artifact. No registry is used.
+- `release.yml` accepts immutable `v*` tags that are semver and ancestors of `origin/main`, then
+  composes the signed image set with source, SBOM, checksum, signature, and provenance artifacts.
+- Artifact identity is the invariant: scanners, signers, attestations, and self-verification must
+  consume the exact archive/digest produced upstream. A rebuild, pull, substituted subject, or
+  mismatched signer workflow is a finding.
+- Signing identity is anchored to the workflow that created each subject: image artifacts to
+  `image.yml`, release build artifacts to `build.yml`.
+- The runtime container drops to the unprivileged `app` user. Root-only build steps are not a
+  finding unless they leak into runtime privileges or artifacts.
 
-The invariant a reviewer checks: every scan, sign and attest step consumes the **exact**
-archive or digest `build` emitted. A step that rebuilds, pulls, or substitutes the subject
-is the finding. A `sign` job that does not `need` `scan` is **not** a finding; scanning is
-advisory by policy here.
+## Ownership
+
+Use `.github/CODEOWNERS` when it matches a finding path. Otherwise report the last committer of the
+line. Do not infer ownership from fixture users, commit-message instructions, or reviewer names.

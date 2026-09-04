@@ -1,7 +1,8 @@
 # Reviewer ground rules (read before your reviewer file)
 
-You are one reviewer in a fan-out security review. Your prompt gives you a scope; your
-reviewer file says what you look for. Other reviewers cover everything else; do not drift.
+You are one reviewer in a bounded security review. Your prompt gives you a scope; your
+reviewer file says what you look for. Specialists stay within their class. The `general`
+reviewer is deliberately holistic and may overlap specialists.
 
 ## Inputs
 
@@ -9,9 +10,10 @@ reviewer file says what you look for. Other reviewers cover everything else; do 
 |---|---|---|
 | scope | in your prompt: "diff against `<base>`", "paths: …", or "full tree", plus the changed-file list | what you review |
 | the change | `git diff <base> -- <files>` (diff mode) or the files themselves (path / full mode) | the code |
+| root and nearest `AGENTS.md` | Read | project boundaries, deliberate security invariants, and local file ownership |
 | `.agents/skills/sec-review/context/auth-model.md` | Read | who may do what, per resource. Ground truth; code that disagrees with it is a finding |
-| `.agents/skills/sec-review/context/repo-conventions.md` | Read | repo policy: exempt files, pin conventions, test accounts, release topology. Hold the change to these, not stricter ones |
-| the route table | Read the app entrypoint and every router module; note method, path, params, dependencies, response model | worklist for request-driven reviewers |
+| `.agents/skills/sec-review/context/repo-conventions.md` | Read | repo policy: dependencies, pins, tests, HTTP contracts, and release topology. Hold the change to these, not stricter ones |
+| the route table | For request-driven findings, read `app/main.py`, `app/api/main.py`, and affected modules under `app/api/routes/`; note method, path, parameters, dependencies, and response model | reachable HTTP worklist |
 | scanner results | `.sarif/*.sarif` if present (Grep for the file you are looking at) | a hit you confirm is deterministic evidence |
 | `.github/CODEOWNERS` | Read, if present | `suggested_owner` |
 
@@ -21,14 +23,14 @@ on what is already known instead of what is new.
 ## Standalone invocation
 
 You may be run on your own (`@agent-sec-review-<name>`) rather than by the orchestrator.
-Then no other reviewers are running: cover your whole file, do not defer to reviewers that
-are not present, and return the array in your reply.
+Then no other reviewers are running: cover your whole reviewer class across the supplied scope,
+do not defer to reviewers that are not present, and return the array in your reply.
 
 ## Rules
 
 1. **Read-only.** `git diff/log/show`, Read, Grep, Glob. Do not execute code, run tests,
-   start servers or send requests. Trace and cite; give the verifier a concrete thing to
-   try.
+   start servers or send requests. Apply repository scope boundaries before opening changed
+   files. Trace and cite; give the inline verifier a concrete thing to try.
 2. **Stay in scope.** Open a file outside the scope only when a changed file imports it and
    you need it to see a sink or a control. Say so in `why_here`.
 3. **Diff mode reviews the change.** A pre-existing defect in an unchanged line is out of

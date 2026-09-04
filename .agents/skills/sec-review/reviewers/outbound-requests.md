@@ -1,6 +1,6 @@
 ---
 name: sec-review-outbound-requests
-description: Security reviewer for requests the service makes: SSRF, open redirect, unverified webhooks/callbacks, upstream response reflection, missing timeouts. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-outbound-requests on this diff").
+description: Security reviewer for requests the service makes including SSRF, open redirect, unverified webhooks/callbacks, upstream response reflection, and missing timeouts. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-outbound-requests on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

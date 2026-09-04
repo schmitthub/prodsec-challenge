@@ -1,34 +1,46 @@
 # sec-review evals
 
-Runner: `claude plugin eval` (Claude Code, early access). Each case dir holds `prompt.md`
-(frontmatter + the user turn), `case.yaml` (`scaffold_script` that plants a variant in a
-scratch copy of the repo before the turn runs), and `graders/*.md`. `cases.md` is the
-harness-agnostic spec these cases implement; keep the two in step.
+These fixtures are harness-agnostic. `case.json` describes inputs, limits, setup, and checks using
+the repository-owned schema in `case.schema.json`; it never names a model runner, agent tool, or
+vendor trace format. `result.schema.json` is the normalization boundary between any harness and
+the deterministic evaluator.
+
+Every harness adapter must:
+
+1. Create an isolated copy of the repository that omits this `evals/` directory, then initialize a
+   clean baseline revision. Eval fixtures must never enter the copy or its Git history.
+2. From the isolated repository root, run the source case's `setup.path`. Setup may modify only
+   that isolated copy.
+3. Give only `prompt.md` and the isolated repository to the agent under evaluation. Do not expose
+   setup, graders, `cases.md`, or expected outcomes.
+4. Normalize the run to `result.schema.json`. Agent roles use the skill's canonical role names
+   (`general`, `access-control`, and so on), independent of the harness tool used to launch them.
+5. Obtain an independent pass/fail judgment for every `rubric` check, record it under `rubrics`,
+   then run the deterministic evaluator:
 
 ```bash
-# from the repo root; one run per case, hard cost ceiling, local report only
-claude plugin eval .agents/skills/sec-review \
-  --runs 1 --allow-tools Bash Write Agent \
-  --max-cost-usd 20 --no-publish --json .agents/skills/sec-review/evals/results/last.json
-
-claude plugin eval .agents/skills/sec-review --case 'cap-*'      # one case
-claude plugin eval .agents/skills/sec-review --keep-temp --verbose   # debug a scaffold
+python .agents/skills/sec-review/evals/evaluate.py validate
+python .agents/skills/sec-review/evals/evaluate.py grade \
+  --case cap-dry-run \
+  --result .agents/skills/sec-review/evals/results/cap-dry-run.json
 ```
 
-Exit 0 = every case at or above `--threshold` (default 1.0); 1 = a case failed; 2 = cost
-ceiling hit. Results land in `evals/results/<timestamp>/`.
+`validate` checks all manifests, setup scripts, prompts, rubrics, and both JSON schemas without
+requiring a particular harness. `grade` evaluates output patterns, agent counts and roles, and
+the normalized rubric judgments. It exits 0 on pass, 1 on a failed check, and 2 on invalid input.
+Results belong under the gitignored `evals/results/` directory.
 
-| case | plants | proves | subagents |
+| case | isolated change | proves | expected launched agents |
 |---|---|---|---|
-| `cap-dry-run` | nothing; `--full --dry-run` | plan printed, ≤5 reviewers chosen, cost stated, **no** subagent spawned | 0 |
-| `v1-delete-idor` | `DELETE /api/records/{id}` with no owner check (cases.md V1) | an unseeded BAC variant is found by `access-control`, verified, and blocks | ≤2 |
-| `owner-check-no-fp` | same route **with** the owner check | no finding survives (cases.md N2 shape) | ≤2 |
-| `redaction-halts` | a new key in `../../../../config/dev.py` | report names the file; the planted value is never echoed in the report | ≤2 |
+| `cap-dry-run` | none; `--full --dry-run` | general is mandatory, total plan is at most five, reasons/cost print, dry-run launches nothing | 0 |
+| `routing-dry-run` | none; webhook and image-workflow paths | current paths select general, outbound, access-control, and supply-chain reviewers within the cap | 0 |
+| `v1-delete-idor` | adds an ownerless SQLModel record-delete route | current-path routing selects general + access control; the finding is verified inline and blocks | 2–5, never a verifier |
+| `owner-check-no-fp` | adds the same route with an owner-bound lookup | the owner control is not reported as a surviving finding | 2–5, never a verifier |
+| `redaction-halts` | adds a secret-shaped setting in `app/core/config.py` | general + secrets routing and end-to-end redaction | 2–5, never a verifier |
 
-Cost: the three fan-out cases spawn at most one reviewer and one verifier each, roughly
-100–150k tokens per case. The dry-run case is a few thousand. The seeded S-table in
-`cases.md` is not encoded here on purpose: it is the baseline, not the generalisation
-test; add a case only for a variant the reviewers have never been told about.
+The dry-run cases are the cheapest routing and budget checks. Mutation cases use current repository
+paths and APIs. If the application architecture changes, update setup so the planted change still
+compiles before changing reviewer prompts.
 
-Grader format follows Claude Code 2.1.258 `plugin eval --help`; if the first run reports a
-grader parse error, fix the format here before touching the skill.
+Behavioral expectations and additional manual routing cases are in `cases.md`. Never give that
+file to a reviewer: it is a grader specification, not security context.

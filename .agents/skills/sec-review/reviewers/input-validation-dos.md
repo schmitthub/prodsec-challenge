@@ -1,6 +1,6 @@
 ---
 name: sec-review-input-validation-dos
-description: Security reviewer for input shape and resource limits: weak validation, unbounded pagination, ReDoS, missing rate limits, parser bombs. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-input-validation-dos on this diff").
+description: Security reviewer for input shape and resource limits including weak validation, unbounded pagination, ReDoS, missing rate limits, and parser bombs. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-input-validation-dos on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sec-review:eval-case:v1",
+  "title": "sec-review portable evaluation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "tags", "limits", "prompt", "setup", "checks"],
+  "properties": {
+    "format": {"const": "sec-review-eval/v1"},
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runs", "max_turns", "timeout_seconds"],
+      "properties": {
+        "runs": {"type": "integer", "minimum": 1},
+        "max_turns": {"type": "integer", "minimum": 1},
+        "timeout_seconds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "prompt": {"type": "string"},
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {"path": {"type": "string"}}
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {"$ref": "#/$defs/outputRegex"},
+          {"$ref": "#/$defs/agentCount"},
+          {"$ref": "#/$defs/agentRoles"},
+          {"$ref": "#/$defs/rubric"}
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "checkId": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "outputRegex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "pattern"],
+      "properties": {
+        "id": {"$ref": "#/$defs/checkId"},
+        "kind": {"const": "output_regex"},
+        "pattern": {"type": "string"},
+        "ignore_case": {"type": "boolean"},
+        "negate": {"type": "boolean"}
+      }
+    },
+    "agentCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": {"$ref": "#/$defs/checkId"},
+        "kind": {"const": "agent_count"},
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": "integer", "minimum": 0}
+      }
+    },
+    "agentRoles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": {"$ref": "#/$defs/checkId"},
+        "kind": {"const": "agent_roles"},
+        "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "forbidden": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path"],
+      "properties": {
+        "id": {"$ref": "#/$defs/checkId"},
+        "kind": {"const": "rubric"},
+        "path": {"type": "string"}
+      }
+    }
+  }
+}

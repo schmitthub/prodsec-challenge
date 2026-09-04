@@ -100,14 +100,22 @@
     "risk_label": { "type": "string", "enum": ["critical", "high", "medium", "low", "none"] },
     "decision": { "type": "string", "enum": ["block", "comment", "escalate", "pass"] },
     "escalate_to": { "type": "string" },
-    "scope": { "type": "string", "description": "diff against <base> | paths: ... | full tree" },
+    "scope": { "type": "string", "description": "PR #n base...head | diff base through working tree | paths: ... | full project" },
     "reviewers": {
       "type": "object",
       "required": ["selected", "skipped"],
       "properties": {
         "selected": {
           "type": "array",
-          "maxItems": 12,
+          "minItems": 1,
+          "maxItems": 5,
+          "contains": {
+            "type": "object",
+            "required": ["reviewer"],
+            "properties": { "reviewer": { "const": "general" } }
+          },
+          "minContains": 1,
+          "maxContains": 1,
           "items": {
             "type": "object",
             "required": ["reviewer", "reason"],
@@ -136,10 +144,11 @@
     },
     "cost": {
       "type": "object",
-      "required": ["reviewers", "verifiers"],
+      "required": ["reviewers", "verifiers", "inline_verification"],
       "properties": {
-        "reviewers": { "type": "integer" },
-        "verifiers": { "type": "integer" },
+        "reviewers": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "verifiers": { "const": 0, "description": "orchestrated verification is inline" },
+        "inline_verification": { "const": true },
         "approx_tokens": { "type": "integer" }
       }
     },

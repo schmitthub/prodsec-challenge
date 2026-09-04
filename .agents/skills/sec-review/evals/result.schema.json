@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sec-review:eval-result:v1",
+  "title": "sec-review normalized evaluation result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "case", "run", "status", "final_output", "agents", "rubrics"],
+  "properties": {
+    "format": {"const": "sec-review-eval-result/v1"},
+    "case": {"type": "string"},
+    "run": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["completed", "timeout", "error"]},
+    "final_output": {"type": "string"},
+    "agents": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role"],
+        "properties": {"role": {"type": "string"}}
+      }
+    },
+    "rubrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["passed", "reason"],
+        "properties": {
+          "passed": {"type": "boolean"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wall_seconds": {"type": "number", "minimum": 0},
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

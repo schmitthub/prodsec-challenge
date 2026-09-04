@@ -1,6 +1,6 @@
 ---
 name: sec-review-unsafe-parsing-files
-description: Security reviewer for untrusted formats and files: deserialization, XXE, archive extraction, uploads, temp files, symlinks. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-unsafe-parsing-files on this diff").
+description: Security reviewer for untrusted formats and files including deserialization, XXE, archive extraction, uploads, temp files, and symlinks. Read-only; reviews the diff or paths it is given and returns a JSON array of findings. Use via the sec-review skill or directly ("run sec-review-unsafe-parsing-files on this diff").
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
 model: inherit
 ---
