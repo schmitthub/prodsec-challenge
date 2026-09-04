@@ -19,7 +19,9 @@ Step 3 implemented: `app/api/policy.py` (walker over FastAPI 0.141's private `_I
 tagged `__row_access__ = RowAccess(marker, model, param)`), snapshot `app/api/policy.json` (regenerate `uv run python -m app.api.policy`),
 `tests/api/test_route_policy.py` (one policy per route, `PUBLIC_ROUTES` allowlist with reasons, `NON_API_ROUTES`, snapshot diff) and
 `tests/api/test_access_matrix.py` (route x {anonymous, owner, other-member, staff}; expected 401/403/404/granted derived from declared
-policy; mutation check confirmed it fails when the loader's ownership check is disabled). Steps 4-5 remain.
+policy; mutation check confirmed it fails when the loader's ownership check is disabled). Step 4 (RLS) REJECTED by user 2026-09-04: the required DB role split (owner role for migrations/seeding/tests + non-superuser
+runtime role, since superusers bypass RLS) is too much machinery for a query path that no longer exists once routes cannot
+hold a Session. Do not propose it again. Step 5 (extra escape hatches) only when a caller needs one.
 Test caveat: from inside the clawker container the compose Postgres is not reachable on localhost; run the suite the way the prek hook does:
 `docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh`.
 Goal: make broken access control (wrong owner scope, wrong role, wrong data type on a route) structurally
@@ -133,20 +135,11 @@ Annotated alias) gives that, but the marker cannot see `T`. So the router does i
 
 An explicit `require(Scope...)` on the decorator is optional redundancy (checksum) that keeps intent reviewable.
 
-### 5. Postgres row-level security (bottom layer, second phase)
+### 5. (removed) Postgres row-level security
 
-```sql
-ALTER TABLE record ENABLE ROW LEVEL SECURITY;
-ALTER TABLE record FORCE ROW LEVEL SECURITY;
-CREATE POLICY record_owner ON record USING (
-  user_id = current_setting('app.user_id', true)::uuid
-  OR current_setting('app.role', true) = 'staff'
-);
-```
-
-`get_db` runs `SET LOCAL app.user_id/app.role` per request. Survives contributors who never read deps.py:
-a raw query for a foreign row returns nothing, 404 falls out. Costs: app role must not own tables (or `FORCE`),
-migrations run as owner, seeding needs a bypass role. Postgres 17 already in compose and CI.
+Dropped. A DB-tier control does not belong in an application-layer access-control design whose premise is that
+routes cannot reach the database except through typed loaders. It needed a second DB login (superusers bypass RLS)
+and a per-request GUC to guard a path the router already closes. User rejected it; do not propose again.
 
 ### 6. Semgrep, `.semgrep/fastapi-access-control.yaml`
 
@@ -187,7 +180,6 @@ for `semgrep --test`. Rules are shape checks; none tries to understand what a de
 | widened without staff | `AnyOwner` loader requires `read_any` |
 | response leaks a wider type | router cross-check of `response_model.__access__` |
 | wrong model on the route | path<->type rule + matrix test |
-| any code path at all | RLS |
 | bypass | still possible, never quiet: distinct word, WARNING, snapshot diff, allowlist entry, CODEOWNERS |
 
 ## Suggested order
@@ -196,7 +188,7 @@ for `semgrep --test`. Rules are shape checks; none tries to understand what a de
    files; delete `get_current_staff_user`, inline role checks, stale `RecordDep`, `SessionDep` from routes.
 2. Semgrep rule file + fixture, wired into prek and CI.
 3. Route walker + policy snapshot + matrix test.
-4. RLS migration + `SET LOCAL` in `get_db`.
+4. (dropped: RLS)
 5. Escape hatches beyond `Public` only when a caller needs them (vocabulary reserved, not implemented).
 
 ## Open decisions
