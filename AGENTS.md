@@ -75,3 +75,11 @@ Every source-bearing directory under `app/`, `scripts/`, and `tests/` owns an `A
 ## Agent environment
 
 Runs inside a clawker container with a path-scoped egress firewall (`.clawker.yaml`). The image ships only CPython 3.14; uv fetches the project's **3.11** and Serena's pyright launcher's **3.13** (`uvx -p 3.13`) on demand into `UV_PYTHON_INSTALL_DIR=/home/clawker/.local/share/uv/python` (set via `agent.env` — the stack's default dir is root-owned and not writable by the agent user; see schmitthub/clawker#506). `.venv` is tmpfs-masked per `.clawkerignore` — empty on every container start; run `uv sync` first.
+
+Git may report `detected dubious ownership` for a host-mounted checkout when its owner differs from the container user. For this trusted workspace, supply an exact, per-command `safe.directory` exception. From the repository root:
+
+```bash
+git -c safe.directory="$PWD" status
+```
+
+Use the same prefix for other Git commands, including `add`, `commit`, and `push`. When running from a subdirectory, pass the repository's absolute root instead of `$PWD`. Keep the exception scoped to this checkout rather than trusting `*` or changing ownership of the host mount. Normal Git hooks still run.
