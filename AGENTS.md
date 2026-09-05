@@ -1,12 +1,6 @@
-# CLAUDE.md
+# AGENTS
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## What this repo is
-
-This repository began as a Senior Product Security Engineer take-home and now contains a Postgres-backed FastAPI records service plus its security-focused CI and release pipeline. The current application uses SQLModel persistence, Alembic migrations, hashed passwords, expiring JWTs, owner-scoped record queries, and an allowlisted webhook fetcher.
-
-Treat security behavior as deliberate. Do not weaken or broadly refactor authentication, authorization, query construction, outbound-request controls, or error handling unless the task explicitly calls for it. Keep authorization failures for foreign records indistinguishable from missing records (`404`).
+This file provides guidance to coding agents when working with code in this repository.
 
 ## Scenario Boundary (Non-negotiable)
 
