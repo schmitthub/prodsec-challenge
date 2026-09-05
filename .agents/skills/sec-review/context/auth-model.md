@@ -14,13 +14,12 @@ decision rather than an invented reviewer assumption.
 - `app/api/deps.py:decode_oauth2_token` accepts only the configured HS256 algorithm and relies
   on PyJWT's normal expiry validation. `get_current_user` resolves `sub` to the database
   `User`; `CurrentUser` is the route dependency.
-- `app/api/deps.py:get_current_staff_user` is the staff role gate. `RecordDep` is currently
-  an unused bearer-token alias and does not authenticate a route by itself.
+- `app/authz` wires named Policy/Binding contracts; `app/api/policies` contains the reviewed provider implementations. Record reads/search are owner scoped; `OwnerOrStaffNotesPolicy` widens only the composite notes operation.
 - Roles are `member` and `staff`. Role and identity used for authorization must come from
   the token-derived `CurrentUser`, never from request data.
 - Public framework/service endpoints are `/health`, `/docs`, `/redoc`, and
   `<prefix>/openapi.json`; the login route is also unauthenticated by design. All business
-  routes require `CurrentUser` directly or through `get_current_staff_user`.
+  routes require a policy principal dependency and a registered `FromPolicy` provider.
 
 Authentication failures must not disclose whether an email exists. Successful and rejected
 token responses carry `Cache-Control: no-store` and `Pragma: no-cache`.
@@ -48,7 +47,7 @@ the intended scope cannot be derived.
 
 - A SQLModel query constrained by `Record.user_id == current_user.id`.
 - A post-lookup owner comparison against `current_user.id` before response or mutation.
-- `get_current_staff_user`, or a role check against the token-derived current user, for a
+- The reviewed vendor/notes policy role check against the token-derived current user for a
   declared staff-wide action.
 - Public response models that exclude `hashed_password` and other internal fields.
 - The webhook's exact normalized-host allowlist, HTTPS requirement, disabled redirects, fixed

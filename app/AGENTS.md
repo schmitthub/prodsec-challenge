@@ -2,14 +2,15 @@
 
 ## Directory summary
 
-The runtime package for the FastAPI records service. It assembles the ASGI application, defines the SQLModel database and API schemas, implements persistence helpers, and provides database readiness and seed-data entry points. HTTP dependencies and routers live under `api/`, shared configuration and infrastructure live under `core/`, and schema migrations live under `alembic/`; each child source directory has its own guide.
+The runtime package for the FastAPI records service. It assembles the ASGI application, defines the SQLModel database and API schemas, implements persistence helpers, and provides database readiness and seed-data entry points. Reusable authorization contracts live under `authz/`, HTTP dependencies and routers under `api/`, shared configuration and infrastructure live under `core/`, and schema migrations live under `alembic/`; each child source directory has its own guide.
 
 ## Role in the project
 
-`main.py` is the Uvicorn entry point and mounts `api.main.api_router` at the configured API prefix. Route handlers exchange the models in `models.py`, use sessions supplied by `api.deps`, and call the persistence operations in `crud.py`. `backend_pre_start.py`, `tests_pre_start.py`, and `initial_data.py` are executable lifecycle helpers used around application and test startup.
+`main.py` is the Uvicorn entry point and mounts `api.main.api_router` at the configured API prefix. Route handlers consume reviewed providers through `authz.FromPolicy`; providers use sessions from `api.deps` and persistence operations in `crud.py`. `backend_pre_start.py`, `tests_pre_start.py`, and `initial_data.py` are executable lifecycle helpers used around application and test startup.
 
 ## Child directories
 
+- `authz/` — reusable authorization contracts and live FastAPI discovery; see `authz/AGENTS.md`.
 - `api/` — shared FastAPI dependencies, top-level API router composition, and endpoint modules; see `api/AGENTS.md`.
 - `core/` — settings, database engine and local seed data, and password/JWT primitives; see `core/AGENTS.md`.
 - `alembic/` — Alembic runtime configuration, revision template, and migration revisions; see `alembic/AGENTS.md`.
@@ -26,7 +27,7 @@ Builds the FastAPI application, conditionally installs CORS middleware, mounts t
 
 - `custom_generate_unique_id(route)`: Produces OpenAPI operation IDs from the route's first tag and function name.
 - `app`: Configured `FastAPI` ASGI application; uses `settings.PROJECT_NAME`, serves OpenAPI below `settings.API_V1_STR`, conditionally installs `CORSMiddleware` from `settings.all_cors_origins`, and includes `api_router` at the API prefix.
-- `health()`: Handles `GET /health` and returns the service status object.
+- Health is mounted from `api/routes/health.py`; `discover_contracts(app)` validates all mounted business and health operations after inclusion.
 - `unhandled_exception_handler(request, exc)`: Catch-all async exception handler returning HTTP 500 JSON with the request path; includes `repr(exc)` in the detail only in the local environment.
 
 ### `models.py`
@@ -35,9 +36,6 @@ Defines request schemas, public response schemas, enums, and the three related S
 
 - `PreviewRequest`: Pydantic webhook-preview request with the `callback_url` field typed as `HttpUrl`.
 - `UserRole`: String enum with `member` and `staff` values.
-- `Scope`: `StrEnum` permission vocabulary: `records:read`, `records:read:any`, `webhooks:preview`, `role:staff`. Roles map to scopes in `app.api.deps.ROLE_SCOPES`.
-- `Access`: Frozen dataclass declared on models as `__access__`: `read` scope, optional `write` scope, `owner_field` (column holding the owning user's id), and optional `read_any` scope that permits cross-owner reads. Loaders and `PolicyRouter` in `app.api.deps` read it.
-- `RECORD_ACCESS`: `Access(read=records:read, owner_field="user_id", read_any=records:read:any)`; shared by every record and note type because a note is visible exactly when its record is.
 - `UserBase`: Shared user fields `email` (unique, indexed, max 255) and `role` (defaults to `UserRole.member`, max 50).
 - `User`: `user` table model adding UUID `id`, `hashed_password`, and the cascading `records` relationship to `Record`.
 - `UserCreate`: User creation schema adding an 8–128 character plaintext `password` to `UserBase` fields.
@@ -45,18 +43,20 @@ Defines request schemas, public response schemas, enums, and the three related S
 - `UsersPublic`: Paginated user collection with `data` (`list[UserPublic]`) and `count`.
 - `RecordType`: String enum whose current value is `lab_result`.
 - `RecordStatus`: String enum whose current value is `released`.
-- `RecordBase`: Shared record fields `type`, optional `summary` (max 255), and `status`; carries `__access__ = RECORD_ACCESS`, inherited by `RecordCreate`, `Record`, and `RecordPublic`.
+- `RecordBase`: Shared record fields `type`, optional `summary` (max 255), and `status`.
 - `RecordCreate`: Record creation schema; adds no fields beyond `RecordBase`.
 - `Record`: `record` table model. `__table_args__` enforces unique `(user_id, summary)` values; fields and relationships are UUID `id`, cascading foreign-key `user_id`, optional `user`, and cascading `notes`.
 - `RecordPublic`: Public record schema adding UUID `id` and `user_id` to `RecordBase` fields.
-- `RecordsPublic`: Paginated record collection with `data` (`list[RecordPublic]`) and `count`; `__access__ = RECORD_ACCESS`.
-- `RecordNoteBase`: Shared record-note field `note` (max 255); `__access__ = RECORD_ACCESS`, inherited by `RecordNoteCreate`, `RecordNote`, and `RecordNotePublic`.
+- `RecordsPublic`: Paginated record collection with `data` (`list[RecordPublic]`) and `count`.
+- `RecordNoteBase`: Shared record-note field `note` (max 255).
 - `RecordNoteCreate`: Record-note creation schema; adds no fields beyond `RecordNoteBase`.
 - `RecordNote`: `recordnote` table model. `__table_args__` enforces unique `(record_id, note)` values; fields and relationships are UUID `id`, cascading foreign-key `record_id`, and optional `record`.
 - `RecordNotePublic`: Public note schema adding UUID `id` and `record_id` to `RecordNoteBase` fields.
-- `RecordNotesPublic`: Notes-for-record response with `record_id`, `data` (`list[RecordNotePublic]`), and `count`; `__access__ = RECORD_ACCESS`.
+- `RecordNotesPublic`: Notes-for-record response with `record_id`, `data` (`list[RecordNotePublic]`), and `count`.
 - `Message`: Generic response schema with `message`.
 - `Token`: OAuth2 token response with `access_token`, `token_type` (default `bearer`), and `expires_in` seconds.
+- `HealthStatus`: Liveness response with status `ok`.
+- `VendorPreview`: Bounded outbound preview result with status code, nullable content type, and preview text.
 - `TokenPayload`: Decoded JWT claims model with optional `sub`.
 
 ### `crud.py`

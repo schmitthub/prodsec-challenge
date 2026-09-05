@@ -2,3 +2,19 @@
 
 # Protect CI, CODEOWNERS, and dependabot config
 /.github/ @schmitthub
+
+# Authorization intent, implementations, and every enforcement layer.
+# Required code-owner approval must also be enabled in the main ruleset.
+/app/authz/ @schmitthub
+/app/api/policies/ @schmitthub
+/app/api/deps.py @schmitthub
+/app/api/main.py @schmitthub
+/app/main.py @schmitthub
+/app/models.py @schmitthub
+/app/crud.py @schmitthub
+/app/core/ @schmitthub
+/.semgrep/ @schmitthub
+/.pre-commit-config.yaml @schmitthub
+/tests/authz/ @schmitthub
+/tests/api/ @schmitthub
+/docs/access-control.md @schmitthub

@@ -4,6 +4,8 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
+from app.api.routes import health
+from app.authz import discover_contracts
 from app.core.config import settings
 
 
@@ -28,15 +30,12 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
-@app.get("/health", tags=["health"])
-def health():
-    return {"status": "ok"}
+app.include_router(health.router)
+discover_contracts(app)
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     resp = {
         "error": "internal_error",
         "path": str(request.url.path),

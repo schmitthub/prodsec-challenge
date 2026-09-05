@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqlmodel import Session, create_engine, select
 
 from app import crud
@@ -25,14 +27,14 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
 
 # Local-only fixture accounts. Password comes from settings.SEED_PASSWORD.
-SEED_USERS: list[dict] = [
+SEED_USERS: list[dict[str, Any]] = [
     {"email": "alice@example.com", "role": UserRole.member},
     {"email": "bob@example.com", "role": UserRole.member},
     {"email": "clinician@example.com", "role": UserRole.staff},
 ]
 
 # Records keyed by owner email; notes keyed by record summary.
-SEED_RECORDS: list[dict] = [
+SEED_RECORDS: list[dict[str, Any]] = [
     {
         "owner_email": "alice@example.com",
         "type": RecordType.lab_result,

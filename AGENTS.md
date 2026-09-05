@@ -24,7 +24,7 @@ docker compose up -d db                        # tests and app use real Postgres
 uv run bash scripts/prestart.sh                # wait for DB, migrate, seed local fixtures
 uv run pytest tests                            # full suite (what CI runs)
 uv run pytest tests/api/routes/test_records.py # one module
-uv run python -m app.api.policy                # regenerate app/api/policy.json after an intentional access-policy change (snapshot test fails until you do)
+uv run python .github/scripts/semgrep_gate.py --contracts # full-tree contract scan and exception audit (pinned Semgrep required)
 uv run fastapi dev app/main.py                 # API on :8000, docs at /docs
 docker compose up --build                      # Postgres + prestart + API (+ Adminer/Traefik wiring)
 
@@ -42,13 +42,14 @@ Commit guard: `.claude/hooks/git-checks.sh` blocks `--no-verify`, `-n`, `SKIP=`,
 ## App architecture
 
 - `app/main.py` — constructs the `FastAPI` application, configures CORS, mounts the versioned API router at `settings.API_V1_STR`, exposes `/health`, and handles otherwise-unhandled exceptions.
-- `app/api/deps.py` — the whole access-control vocabulary: session, bearer-token decoding, `CurrentUser`/`StaffUser`, role→scope table, the typed row loaders `Owned[Model]`/`AnyOwner[Model]`/`OwnedQuery[Model]`, the `PUBLIC` opt-out, and `PolicyRouter`, which wires those markers into dependencies, injects identity on every non-public route, forbids `Session` in route signatures, and raises `PolicyError` at import when a declaration is contradictory or a response type needs a scope the signature does not grant. Routes declare policy with these words only; they never query.
-- `app/api/policy.py` + `policy.json` — reads the declared policy of every mounted route back from the app (walks FastAPI's lazy include tree) and snapshots it; `tests/api/test_route_policy.py` diffs the snapshot and `tests/api/test_access_matrix.py` derives the expected status per route × principal from it and checks the live response.
+- `app/authz/` — application-independent authorization contracts (`Policy`, `Binding`, `FromPolicy`, `PolicyRouter`, `use_policy`) and live mounted-route discovery. No application models, ORM, ownership conventions, or endpoint manifests.
+- `app/api/deps.py` — bearer authentication, current-user resolution, and session lifecycle only.
+- `app/api/policies/` — reviewed repository policy symbols and provider implementations: owner-filtered record reads/search, owner-or-staff composite notes, current user, login, health, and staff vendor preview. Routes consume providers through `FromPolicy`; business checks live here.
 - `app/api/main.py` and `app/api/routes/` — router composition plus login, current-user, owner-scoped records/search, record notes, and staff-only webhook preview endpoints.
 - `app/core/config.py` — environment-backed `Settings`, CORS/host parsing, Postgres URL construction, and non-local secret validation.
 - `app/core/db.py` — SQLModel engine plus idempotent local fixture seeding; schema changes belong in `app/alembic/`.
 - `app/core/security.py` — HS256 access-token creation and bcrypt password hashing/verification.
-- `app/models.py` — SQLModel table models, relationships, enums, request models, public response models, token models, plus the `Scope` enum and `Access` declaration (`__access__` on record types) that the loaders and `PolicyRouter` read.
+- `app/models.py` — persistence models and request/response schemas; authorization declarations live in `app/api/policies/`.
 - `app/crud.py` — user authentication/creation and record/note creation helpers.
 - `tests/` — pytest coverage for API behavior, access-control invariants, CRUD/security helpers, and database pre-start probes; tests use the real Postgres engine.
 
@@ -61,7 +62,8 @@ Every source-bearing directory under `app/`, `scripts/`, and `tests/` owns an `A
 - `pr.yml` (pull_request → main) and `main.yml` (push main) are thin callers of two reusable workflows; permissions are declared per calling job — reusable workflows do not inherit workflow-level blocks.
 - `test.yml`: reusable pytest workflow with a Postgres 17 service. It installs from `uv.lock`, runs migrations/local seeding through `scripts/prestart.sh`, then executes the coverage-backed suite through `scripts/tests-start.sh`.
 - `security.yml` jobs and their gates:
-  - `semgrep` — one run writes SARIF (→ Code scanning, all severities) and JSON; on PRs `--baseline-commit` limits findings to the PR's, and only `ERROR|HIGH|CRITICAL` fail via `.github/scripts/semgrep_gate.py` — the same script the local semgrep hook runs (one hook, same config list as CI — semgrep scopes rules by language itself) (`--report` mode in CI, run-then-gate locally), because semgrep's `--severity` only knows INFO/WARNING/ERROR and drops HIGH/CRITICAL rules, and `semgrep ci` gates on `dev.semgrep.actions` metadata, not severity. Main: upload only. Custom rules live in `.semgrep/`: `github-actions.yaml` (cache poisoning) and `fastapi-access-control.yaml` (shape checks on the `app/api/deps.py` vocabulary: `PolicyRouter` only, no `Session`/bare table model in route signatures, no `Session(...)`/`engine`/`get_db` inside a route module, `dependencies=` limited to `require()`/`PUBLIC`, no inline `.role` checks or 403s in routes, taint from `session.get`/`select` to a response, `PUBLIC` reported as an advisory WARNING). Each rule file has a sibling `.py` fixture with `ruleid`/`ok` markers, run by the semgrep hook (via `semgrep_gate.py`) before every local scan; the rules scope themselves to `app/` via `paths`, which `--test` ignores, so fixtures never appear as findings.
+  - `semgrep` — general rules retain PR-baseline severity gating via `.github/scripts/semgrep_gate.py`; local/CI authorization contracts always scan all of `app/`, run rule fixtures, and audit suppression comments. `.semgrep/fastapi-access-control.yaml` checks router policy declarations, FromPolicy wiring, binding-policy mismatch, route dependency/import boundaries, direct provider calls, and policy definition placement. PUBLIC definitions, public-router applications, and endpoint overrides are ERROR findings requiring justified rule-specific suppressions; accepted exceptions remain visible in gate output. Existing hook owns both passes; no separate hook. Tests derive route coverage from the mounted app, with no checked-in endpoint inventory. GitHub merge enforcement also needs the Semgrep job required in the ruleset; see `docs/access-control.md`.
+
   - `bandit` — `bandit[toml,sarif]==BANDIT_VERSION` via pip, full-tree SARIF (→ Code scanning, category `bandit`); on PRs a JSON scan of `git archive <base>` feeds `bandit -b` and only new HIGH findings fail. Main: upload only.
   - `gitleaks` — full history, `.gitleaks.toml` (adds `lab-vendor-api-key` rule) + baseline `gitleaks-report.json`; regenerate the baseline with `gitleaks git . --config .gitleaks.toml --redact --report-path gitleaks-report.json` (stored redacted — every scan that consumes it must pass `--redact`, which CI and the prek hook both do; gitleaks compares `Match`/`Secret` against the baseline only when redact is 0), don't use `.gitleaksignore` for it.
   - `image` — calls `image.yml` (reusable; input `release: false`). No registry anywhere — the docker-archive is the artifact. Jobs:

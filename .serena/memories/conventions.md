@@ -2,7 +2,9 @@
 
 ## App code
 - FastAPI app mounts `app.api.main.api_router` at `settings.API_V1_STR`; route modules live in `app/api/routes/`.
-- Shared dependencies use aliases from `app/api/deps.py`: `SessionDep`, `CurrentUser`; staff-only routes depend on `get_current_staff_user`.
+- `app/api/deps.py` owns authentication/session primitives. Reviewed `app/api/policies/` providers own authorization and data access; route handlers consume `FromPolicy(Policy.binding)` under mandatory `PolicyRouter(protected_policy=...)`. Generic machinery lives in `app/authz/`; see `mem:design/access-control-deps`.
+- PUBLIC and policy overrides require blocking scanner diagnostics plus justified rule-specific suppressions. The existing gate always scans app/ contracts and prints accepted exceptions. Mounted-route discovery replaces endpoint manifests.
+- Asset declarations, provider return types, and HTTP response schemas are separate contracts. Use shared base/domain marker symbols for asset families; do not infer authorization from sibling classes or compare assets with response types. Record providers return RecordPage/RecordNotes TypedDict results; FastAPI response_model performs public projection.
 - Owner-scoped endpoints filter/query by `current_user.id`; foreign and missing records both return 404. Staff access is explicit per route.
 - SQLModel tables and public/input schemas live in `app/models.py`; CRUD writes call `session.add/commit/refresh`; migrations own schema creation.
 - Search uses SQLModel expressions and escaped case-insensitive containment; webhook fetches require exact case-insensitive allowlist membership, HTTPS, timeout, and redirects disabled.
@@ -16,8 +18,9 @@
 
 ## CI / workflows
 - Actions are SHA-pinned with `# vX.Y.Z` comments. Reusable callers grant permissions per job.
-- Scanner gates: Semgrep new top severity; Bandit new HIGH; Gitleaks baseline-aware; dependency review High+; container OSV advisory/best-effort.
+- Scanner gates: Semgrep general rules gate new top-severity PR findings; authorization contracts scan all app/ and block locally and on both PR/main, with visible justified exceptions. Bandit new HIGH; Gitleaks baseline-aware; dependency review High+; container OSV advisory/best-effort.
 - Scanner versions must match between `security.yml` or the local composite and `.pre-commit-config.yaml`.
+- `.semgrep/fastapi-access-control.py` is deliberately invalid, line-sensitive scanner input. Preserve its targeted Ruff noqa codes and fmt-off header: removing/reordering imports or moving ruleid/ok comments destroys test cases. The Semgrep fixture gate still checks every expected finding.
 - `uv.lock` is the SCA/SBOM dependency input; scanners stay out of the uv dependency groups.
 
 ## Agent documentation

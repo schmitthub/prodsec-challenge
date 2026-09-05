@@ -13,10 +13,12 @@ uv run bash scripts/lint.sh                     # strict mypy + Ruff check/forma
 uv run bash scripts/format.sh                   # Ruff fix/format app + scripts
 prek run --all-files                            # fixers, scanners, compose-backed pytest
 prek run semgrep --all-files
+uv run python .github/scripts/semgrep_gate.py --contracts # contract fixtures, full app scan, suppression audit; requires pinned Semgrep on PATH
+uv run pytest --confcutdir=tests/authz tests/authz tests/scanners -q # reusable contracts/gate without Postgres
 scripts/sarif-scan.sh                           # full local SARIF, no gates/baselines
 ```
 
-Tests use real Postgres. The hook's pytest entry builds/runs the compose backend and mounts `app/`, `tests/`, and `scripts/`.
+Application tests use real Postgres; tests/authz and tests/scanners can run independently with --confcutdir above. The hook's pytest entry builds/runs the compose backend and mounts `app/`, `tests/`, `scripts/`, and `.github/` read-only for scanner-gate imports.
 
 Scanners are prek-managed, not uv dependencies. `uv run semgrep|bandit|osv-scanner` is not the supported path.
 

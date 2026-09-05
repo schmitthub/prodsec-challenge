@@ -1,200 +1,33 @@
-# Design: type-bound access control deps (proposal, not implemented)
+# Authorization contracts POC
 
-Status: step 1 implemented 2026-09-04 on `refactor/for-funsies` (uncommitted at time of writing): `Scope`/`Access`/`__access__` in
-`app/models.py`; loaders, `PolicyRouter`, `require`, `StaffUser`, `PUBLIC` in `app/api/deps.py`; four route modules converted;
-`get_current_staff_user`, stale `RecordDep`, inline role checks and `SessionDep`-in-routes removed; `tests/api/test_policy_router.py`
-covers the boot-time guarantees. Deviations from the design below: the response cross-check is *subset* (response type's read scope must be
-granted by the signature), not equality, because `AnyOwner[Record]` legitimately grants more than `RecordPublic` needs; notes share
-`RECORD_ACCESS` (no separate notes scopes); `Scope` has only `records:read`, `records:read:any`, `webhooks:preview`, `role:staff`.
-Step 2 implemented: `.semgrep/fastapi-access-control.yaml` (10 rules, ids `fastapi-*`) + fixture `.semgrep/fastapi-access-control.py`,
-wired into `.pre-commit-config.yaml` and `security.yml` config lists. Rule ids differ slightly from the table below
-(router-not-policy-router, route-session-param, route-model-param-unwrapped, route-foreign-dependency, require-string-scope,
-inline-role-check, route-raises-403, route-raw-row-to-response [taint], route-path-model-mismatch [WARNING], escape-hatch [WARNING]).
-`semgrep --test` needs absolute paths on 1.175 (relative crashes with IndexError); the existing semgrep hook runs
-every rule file against its sibling fixture: `semgrep_gate.py` calls `test_rules()` before `run_semgrep()` in local mode (not in CI
-`--report` mode). User insisted on a hook, then rejected a *separate* hook: fold into the existing one, never add a hook when an existing
-one owns the concern.
-Table-model list is a hardcoded regex in two rules; extend when a table is added.
-Step 3 implemented: `app/api/policy.py` (walker over FastAPI 0.141's private `_IncludedRouter.effective_candidates()`; loaders
-tagged `__row_access__ = RowAccess(marker, model, param)`), snapshot `app/api/policy.json` (regenerate `uv run python -m app.api.policy`),
-`tests/api/test_route_policy.py` (one policy per route, `PUBLIC_ROUTES` allowlist with reasons, `NON_API_ROUTES`, snapshot diff) and
-`tests/api/test_access_matrix.py` (route x {anonymous, owner, other-member, staff}; expected 401/403/404/granted derived from declared
-policy; mutation check confirmed it fails when the loader's ownership check is disabled). Step 4 (RLS) REJECTED by user 2026-09-04: the required DB role split (owner role for migrations/seeding/tests + non-superuser
-runtime role, since superusers bypass RLS) is too much machinery for a query path that no longer exists once routes cannot
-hold a Session. Do not propose it again. Step 5 (extra escape hatches) only when a caller needs one.
-Test caveat: from inside the clawker container the compose Postgres is not reachable on localhost; run the suite the way the prek hook does:
-`docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh`.
-Goal: make broken access control (wrong owner scope, wrong role, wrong data type on a route) structurally
-hard and mechanically detectable, not just "missing auth". Lint (semgrep) is fast feedback on a
-convention; the guarantees come from the router, the loaders and the DB.
+## User intent
 
-## Problem in today's code
+- Authorization intent is explicit in semantic Python symbols and recognizable code structure. Linters/SAST check missing/mismatched/bypassed declarations and wiring; reviewed application code owns business authorization correctness.
+- Flexible composite authorization is required. Repository owners choose policy names and implementations; the reusable layer must not prescribe staff roles, ORM, UUIDs, or ownership conventions.
+- Full refactoring authorized and preferred. Core belongs under app/ in its own package; business policies under app/api/. Do not restore a checked-in endpoint manifest: discover the mounted FastAPI application.
+- PUBLIC and endpoint policy overrides are blocking scanner findings; deliberate rule-specific suppressions need justification and remain visible. Protect implementations, called helpers, and enforcement tools with CODEOWNERS and required reviews.
+- Do not reintroduce the previously rejected DB row-level-security design.
 
-Auth is expressed three ways, so no rule can say "route lacks the required policy":
+## Implemented structure
 
-- `read_me`, `list_my_records`, `search_records`: `current_user: CurrentUser` param (identity only, no role info).
-- `preview_vendor_webhook`: `dependencies=[Depends(get_current_staff_user)]`.
-- `read_record_notes`: inline `current_user.role != "staff"` (raw string, not `UserRole`).
-- `RecordDep` in `app/api/deps.py` is a stale alias of the token dep (named as record lookup, never used).
-  Ownership checks live inline in `read_record` / `read_record_notes` (IDOR surface semgrep cannot see).
-- Routes take `SessionDep` and query tables directly.
+- app/authz/{contracts,router,discovery}.py: Policy classes, immutable named Binding(resource types, provider) objects, FromPolicy dependencies, mandatory PolicyRouter(protected_policy=...), PUBLIC, use_policy, and live discover_contracts(app).
+- Providers execute via normal FastAPI dependency injection. The router validates binding membership and supported methods, installs principal dependencies first, and retains per-route metadata without rewriting endpoint functions.
+- app/api/deps.py: authentication/current-user/session primitives only.
+- app/api/policies/: AuthenticatedPolicy plus RecordPolicy, OwnerOrStaffNotesPolicy (RecordBase+RecordNoteBase composite), UserPolicy, LoginPolicy, HealthPolicy, VendorPreviewPolicy. Ownership and role checks are normal reviewed Python/SQLModel code here.
+- Asset families are explicit resource symbols, independent of provider return types and HTTP schemas. RecordPolicy binds RecordBase; notes additionally bind RecordNoteBase. Do not infer permission from sibling classes or ancestry. Base classes or separate domain marker classes may express the repository's intent.
+- RecordPage/RecordNotes TypedDict payloads contain Sequence[Record]/Sequence[RecordNote]; routes retain precise public response_model schemas. Providers do not need per-row public-model conversions. Never weaken a public schema to a base type just to align asset symbols: subclass-only response fields could disappear. Keep the actual provider result type in endpoint annotations; FastAPI performs public response projection.
+- Routes consume Annotated[T, FromPolicy(Policy.binding)]. /me moved to users; records and search share RecordPolicy. Explicit notes override preserves owner OR staff, ordinary record/list/search stay owner-only including staff.
+- Removed old Scope/Access/__access__, generic Owned/AnyOwner loaders, snapshot walker and policy.json, and generated status matrix. Existing behavioral API tests retained; discovery and standalone contract tests replace structural snapshot tests.
+- app/authz imports no application modules or ORM. FastAPI 0.141 private lazy include traversal is isolated and tested. Unsupported mounts/websockets fail explicitly.
 
-Semgrep is syntactic: it cannot prove `get_current_staff_user` enforces anything or see through a wrapper.
-So the contract must be syntactic: a finite vocabulary of names defined in one file.
+## Enforcement and verification
 
-## Prior art the design borrows from
+- .semgrep/fastapi-access-control.yaml + fixture: 11 ERROR rules for required policy/bindings, imported wiring aliases, policy mismatch, raw deps, route imports/direct provider calls, policy definition placement, PUBLIC uses and overrides. Asset families, provider types, and public schemas are independent; no ancestry/DTO matching.
+- authz-binding-policy-mismatch checks each consumed binding against the endpoint override when present, otherwise the router policy. A correct binding alongside an incorrect one cannot hide the mismatch. Fixtures cover RecordPage/RecordNotes public projection, shared-base composite declarations, same-family wrong policies, overrides, mixed bindings, and consistent import aliases.
+- Scanner limitation: policy comparison uses local symbol spelling. Use the same imported policy name in router/override and FromPolicy; two different aliases for one policy can be conservatively flagged. Core runtime validation independently checks actual binding membership. Do not implement ad hoc sibling-class permission inference to work around a scanner limitation.
+- Existing .github/scripts/semgrep_gate.py runs rule fixtures, full app/ contract scan independent of baselines, and suppression comment audit. Accepted exceptions printed. Same path in existing local hook and CI; no added hook.
+- tests/authz: framework tests independent of DB; tests/scanners: gate/audit tests. Compose test hook mounts .github read-only for gate tests. tests/api/test_contracts.py discovers protected endpoints and independently verifies auth and staff isolation.
+- Verification: initial POC full suite passed 89 tests. Asset/result/schema separation then passed 18 standalone contract tests plus 27 real-Postgres API tests, Pyright, mypy, and Ruff. Current Semgrep update passed all 11 rule fixture suites and the full app/ contract scan with visible justified exceptions. The new override-mismatch fixture failed before the rule fix and passes afterward. Earlier throwaway git repositories proved unapproved PUBLIC/missing-policy block, justified exception passes visibly, blanket suppression blocks.
+- .github/CODEOWNERS explicitly protects contract layers, helpers, policies, tests, rules, and tooling. Read-only check 2026-09-05: main ruleset already requires code-owner approval, stale-review dismissal and last-push approval. Semgrep and behavioral test status checks still need to be required server-side; no remote settings changed. docs/access-control.md documents the exact review/deployment steps and POC limits.
 
-- Default-deny + explicit opt-out: Django 5.1 `LoginRequiredMiddleware`/`@login_not_required`, DRF
-  `DEFAULT_PERMISSION_CLASSES`, Rails `before_action :authenticate_user!`/`skip_before_action`, Spring
-  `anyRequest().authenticated()`/`permitAll()`, ASP.NET `FallbackPolicy`/`[AllowAnonymous]`, NestJS global
-  `APP_GUARD` + `@Public()`, Istio/OPA default-deny at ingress.
-- "Did you authorize?" tripwire: Pundit `verify_authorized` / `verify_policy_scoped`, CanCanCan
-  `check_authorization`, GitLab every-endpoint metadata specs, Spectral `operation-security-defined`.
-- Policy bound to data, not routes: Pundit `policy_scope`, Oso `authorized_query`, django-guardian
-  `get_objects_for_user`, Postgres RLS (Hasura/PostgREST/Supabase).
-- Types as capabilities: "parse, don't validate", Rocket/Axum request guards.
-- This repo descends from full-stack-fastapi-template (per-route deps only, no default-deny). That is the gap.
-
-## Design
-
-### 1. Policy bound to the type
-
-Every table model and every `*Public` response model declares what it takes to see/modify it:
-
-```python
-class Record(SQLModel, table=True):
-    __access__ = Access(
-        read=Scope.records_read,
-        write=Scope.records_write,
-        owner_field="user_id",  # rows scoped to caller by default
-        read_any=Scope.records_read_any,  # cross-owner widening; absent = cannot widen
-        public_read=False,  # anonymous read; absent = never
-    )
-
-
-class RecordNotesPublic(SQLModel):
-    __access__ = Access(read=Scope.notes_read, read_any=Scope.notes_read_any)
-```
-
-`Scope` is a `StrEnum` (3.11+). `ROLE_SCOPES: dict[UserRole, frozenset[Scope]]` maps role -> granted scopes.
-Scopes derive from `user.role` at request time; JWT stays `sub` + `exp`, `create_access_token`/login untouched.
-
-### 2. Vocabulary (all defined in `app/api/deps.py`, nowhere else)
-
-```python
-CurrentUser = Annotated[
-    User, Depends(get_current_user)
-]  # injected by router by default
-StaffUser = Annotated[User, Security(get_current_user, scopes=["role:staff"])]
-Owned[
-    Model
-]  # rows where Model.__access__.owner_field == caller.id; 404 for foreign rows
-AnyOwner[
-    Model
-]  # no owner filter; requires Model.__access__.read_any (=> staff); boot error if type lacks it
-OwnedQuery[Model]  # pre-filtered select(); route adds only q/offset/limit
-```
-
-Escape hatches, narrowest first. Each is a distinct grep-able word:
-
-| Marker | Means | Router does | Constraints |
-|---|---|---|---|
-| `OptionalUser` | anonymous or logged in | parse token if present, no 401 | `Owned` 404s when anonymous |
-| `Public` | no principal | skip identity injection | `Public` + `Owned[X]` = boot error; login uses this |
-| `PublicRows[Model]` | anonymous read of a model | loader with no caller | only if `__access__.public_read` |
-| `ServicePrincipal` / `SignedWebhook` | non-user identity (HMAC, API key, mTLS) | verifies that scheme | `Owned` meaningless => boot error |
-| `Unscoped[Model]` + `RawSession` | explicit bypass | injects raw session | requires `reason=`; semgrep WARNING; in policy snapshot |
-
-Identity is a sum type `Principal = User | Service | Anonymous`; loaders are written against `Principal`.
-"Unauthenticated" is a principal with an empty grant set, not the absence of a check.
-
-`get_current_staff_user` and every inline `.role` comparison are deleted so there is one way.
-Routes take no `SessionDep`: a route with no session cannot query; data enters only through typed loaders.
-`/health` lives on `app`, outside the router, out of scope.
-
-### 3. Composition semantics
-
-- Params AND together; every dep enforces its own check. `(user: StaffUser, record: Owned[Record])` = staff and own row.
-- Widening is a different marker (`Owned` -> `AnyOwner`), never a flag. Shows in the diff as a type change.
-- What can widen is configured on the type (`read_any`, `public_read`), so config lives with the data.
-- HTTP method picks the verb: GET/HEAD -> `read`, others -> `write`. `Owned[Record]` on PATCH needs `records:write`.
-- `Security(scopes=)` accumulates through `SecurityScopes`, so scopes surface in OpenAPI per operation.
-
-### 4. `PolicyRouter(APIRouter)` = wiring + enforcement point
-
-mypy problem: `Owned[Record]` must read as `Record`. On 3.11, `Owned = Annotated[T, _Owner()]` (generic
-Annotated alias) gives that, but the marker cannot see `T`. So the router does it in `api_route`:
-
-1. Walk the signature; for `Annotated[Model, _Owner()]` etc. rewrite the default to `Depends(owned(Model))`.
-2. Inject `CurrentUser` unless `Public`/`OptionalUser`/`ServicePrincipal` present (FastAPI's
-   `APIRouter(dependencies=)` cannot be removed per route, hence injection instead of declaration).
-3. Cross-check: union of scopes from all markers + `StaffUser` + `response_model.__access__` + body model on
-   writes must be consistent (equal, not subset) with any explicit `require(...)`. Mismatch -> app fails to boot
-   with "route declares X, response type needs Y". Pundit's `verify_authorized`, moved to import time.
-4. Contradictions (`Public` + `Owned`, `AnyOwner` on a type without `read_any`) -> boot error.
-
-An explicit `require(Scope...)` on the decorator is optional redundancy (checksum) that keeps intent reviewable.
-
-### 5. (removed) Postgres row-level security
-
-Dropped. A DB-tier control does not belong in an application-layer access-control design whose premise is that
-routes cannot reach the database except through typed loaders. It needed a second DB login (superusers bypass RLS)
-and a per-request GUC to guard a path the router already closes. User rejected it; do not propose again.
-
-### 6. Semgrep, `.semgrep/fastapi-access-control.yaml`
-
-Wire `--config=.semgrep/fastapi-access-control.yaml` into BOTH `.pre-commit-config.yaml` and
-`.github/workflows/security.yml` (lists must stay in sync). Sibling `.py` fixture with `# ruleid:` / `# ok:`
-for `semgrep --test`. Rules are shape checks; none tries to understand what a dep does.
-
-| id | sev | catches |
-|---|---|---|
-| route-model-param-unwrapped | ERROR | table model in a `@router` signature not wrapped in `Owned`/`AnyOwner`/`OwnedQuery`/`PublicRows`/`Unscoped` |
-| route-uses-session | ERROR | `SessionDep`/`Session` in a `@router` signature without `RawSession` |
-| route-inline-role-check | ERROR | `.role` comparison outside deps.py |
-| route-foreign-dependency | ERROR | anything in `dependencies=` that is not a deps.py marker (wrappers, `Depends(x)`, aliases). Allowlist of names, resolved via `app.api.deps.*` so shadowing/foreign imports fail to match |
-| route-raises-403 | ERROR | `HTTPException(403` in routes; only deps.py may 403 (foreign == missing must stay 404) |
-| route-path-scope-mismatch | WARNING | `/records...` path with a non-`Record` model marker, etc. |
-| taint: raw-row-to-response | ERROR | sources `session.get($M, ...)`, `select($M)` for table models; sanitizers `owned(...)`, `owned_query(...)`; sinks `return $X` in a route, `*Public(data=$X)`. Intraprocedural is enough |
-| escape-hatch-used | WARNING | `Public`, `PublicRows`, `Unscoped`, `RawSession` — never silent, never blocking; reason string echoed in message |
-
-### 7. Tests
-
-- Enumerate-all-routes test over `app.routes`: every `APIRoute` under `API_V1_STR` resolves to exactly one
-  policy; escape hatches must appear in an explicit allowlist dict (same shape as `EXEMPT_ROUTES` in
-  `tests/api/test_authz_invariant.py`), e.g. `{"/login": "OAuth2 token endpoint"}`.
-- Policy snapshot: dump `{METHOD path: scopes | PUBLIC | ...}` and assert equal to a checked-in JSON
-  (`app/api/policy.json` or under `tests/`, undecided). Policy changes show in the PR diff; catches dynamic routes semgrep cannot see.
-- Generated matrix test: for every route x principal (anonymous, member, other member, staff, service), expected
-  status derives from `ROLE_SCOPES` + `__access__` (401 unauth, 403 missing scope, 404 foreign row, 2xx own).
-  Broken access control = diff between declared table and observed behaviour. Extends the existing OpenAPI walker.
-- `CODEOWNERS` on `app/api/deps.py` and the snapshot.
-
-### What each layer catches
-
-| Mistake | Caught by |
-|---|---|
-| forgot auth | router injects `CurrentUser` by default |
-| fetched a row directly | no `SessionDep` in routes; taint rule |
-| owner filter wrong | impossible; loader derives it from `__access__` |
-| widened without staff | `AnyOwner` loader requires `read_any` |
-| response leaks a wider type | router cross-check of `response_model.__access__` |
-| wrong model on the route | path<->type rule + matrix test |
-| bypass | still possible, never quiet: distinct word, WARNING, snapshot diff, allowlist entry, CODEOWNERS |
-
-## Suggested order
-
-1. `__access__` + `Owned`/`AnyOwner`/`OwnedQuery` loaders + `PolicyRouter` cross-check; convert the four route
-   files; delete `get_current_staff_user`, inline role checks, stale `RecordDep`, `SessionDep` from routes.
-2. Semgrep rule file + fixture, wired into prek and CI.
-3. Route walker + policy snapshot + matrix test.
-4. (dropped: RLS)
-5. Escape hatches beyond `Public` only when a caller needs them (vocabulary reserved, not implemented).
-
-## Open decisions
-
-- Snapshot file location.
-- Keep explicit `require(...)` on decorators as a redundancy checksum, or infer scopes purely from types.
-- RLS in the same PR or a follow-up (recommend follow-up).
-
-Related: `mem:conventions`, `mem:core`.
+See docs/access-control.md for runnable usage and architecture. Related: `mem:core`, `mem:conventions`.

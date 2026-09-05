@@ -10,7 +10,9 @@ Postgres-backed FastAPI records service with SQLModel/Alembic persistence, OAuth
 
 ## Source map
 - `app/main.py`: FastAPI assembly, CORS, versioned API mount, health, catch-all handler.
-- `app/api/deps.py`: SQLModel session and auth/staff dependencies.
+- `app/authz/`: reusable symbolic authorization contracts and live route discovery; see `mem:design/access-control-deps` for the accepted design and verification.
+- `app/api/policies/`: reviewed application policy symbols and provider implementations. RecordBase/RecordNoteBase name protected asset families; RecordPage/RecordNotes are typed provider payloads. Route response schemas remain independent.
+- `app/api/deps.py`: SQLModel session and current-user authentication only.
 - `app/api/main.py` + `app/api/routes/`: login, identity, records/notes, search, webhook preview.
 - `app/core/config.py`: environment settings, Postgres DSN, allowlist parsing, non-local secret validation.
 - `app/core/db.py`: engine and local fixture seeding; `app/core/security.py`: JWT/bcrypt.

@@ -26,6 +26,10 @@ def test_list_my_records(client: TestClient, db: Session) -> None:
     assert body["count"] == 2
     assert {rec["id"] for rec in body["data"]} == own
     assert all(rec["user_id"] == str(user.id) for rec in body["data"])
+    assert all(
+        set(rec) == {"id", "user_id", "type", "summary", "status"}
+        for rec in body["data"]
+    )
 
 
 def test_list_records_pagination(client: TestClient, db: Session) -> None:
@@ -96,6 +100,7 @@ def test_read_own_record_notes(client: TestClient, db: Session) -> None:
     assert body["count"] == 2
     assert {n["id"] for n in body["data"]} == notes
     assert all(n["record_id"] == str(record.id) for n in body["data"])
+    assert all(set(n) == {"id", "record_id", "note"} for n in body["data"])
 
 
 def test_read_other_users_record_notes_is_not_found(

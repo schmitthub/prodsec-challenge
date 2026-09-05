@@ -25,6 +25,7 @@ This may apply Ruff/whitespace fixes and runs compose-backed pytest when app/tes
 ## Conditional checks
 - Dependency edits: update `pyproject.toml` and `uv.lock`; scanners remain outside uv deps.
 - Workflow edits: run the Semgrep/actions hook; retain action SHA pins/comments and least permissions.
+- Authorization contract/rule edits: run `uv run python .github/scripts/semgrep_gate.py --contracts` with pinned Semgrep on PATH (fixtures, full app/ scan, visible suppression audit). Include positive and negative fixtures; changing provider/response types must not imply a policy change. Run tests/scanners without the DB when modifying the gate itself.
 - Scanner bumps: update CI/composite and matching pre-commit pin together.
 - Accepted secret baseline changes: regenerate redacted `gitleaks-report.json`; do not use ignore entries as a substitute.
 - Schema changes: add/test an Alembic migration and prove upgrade behavior.

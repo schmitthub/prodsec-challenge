@@ -63,10 +63,9 @@ repos:
         - --config=p/owasp-top-ten
         - --config=p/github-actions
         - --config=.semgrep/github-actions.yaml
-        - --config=.semgrep/fastapi-access-control.yaml
         - --skip-unknown-extensions
-      # Scans the staged files on commit (pre-existing findings in untouched
-      # files don't block unrelated commits); `prek run --all-files` = full scan.
+      # General rules scan staged files. The gate always scans authorization
+      # contracts over all app/ files and audits exception comments.
       # Before scanning, the script runs `semgrep --test` on every
       # .semgrep/<name>.yaml that has a sibling fixture, so a rule edit that
       # stops matching (or matches an `ok:` case) fails the commit.
@@ -92,7 +91,7 @@ repos:
       # compose Postgres (the suite uses the real engine). app/, tests/ and
       # scripts/ are mounted because the image ships neither tests nor the
       # test scripts. Runs when app or test code changes.
-      entry: bash -c 'docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" backend bash scripts/tests-start.sh'
+      entry: bash -c 'docker compose run --build --rm -T -v "$PWD/app:/app/app" -v "$PWD/tests:/app/tests" -v "$PWD/scripts:/app/scripts" -v "$PWD/.github:/app/.github:ro" backend bash scripts/tests-start.sh'
       language: system
       pass_filenames: false
       files: ^(app|tests)/.*\.py$

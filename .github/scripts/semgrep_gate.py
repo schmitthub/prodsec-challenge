@@ -8,6 +8,7 @@ and `semgrep ci` blocks on per-rule `dev.semgrep.actions` metadata, not
 severity. So the policy lives here, once, for both consumers.
 
 Usage:
+  semgrep_gate.py --contracts                  full contract scan + exception audit
   semgrep_gate.py --report semgrep.json         gate an existing JSON report (CI)
   semgrep_gate.py <semgrep scan args> [files]   test rule fixtures, run semgrep,
                                                 then gate (pre-commit)
@@ -18,12 +19,15 @@ exit (bad config, crash, failing rule fixture) is passed through.
 
 import json
 import os
+import re
 import subprocess  # nosec B404 - runs semgrep as an argv list, never a shell
 import sys
 import tempfile
+import tokenize
 from pathlib import Path
 
 RULES_DIR = Path(".semgrep")
+CONTRACT_RULES = RULES_DIR / "fastapi-access-control.yaml"
 
 BLOCKING = {"ERROR", "CRITICAL", "HIGH"}
 LEVEL = {
@@ -106,17 +110,76 @@ def gate(report: str) -> int:
         print(
             ("::error::" if on_actions else "")
             + "Blocking Semgrep findings. Lower severities are advisory. "
-            "Justify a true false positive with an inline `# nosemgrep: <rule-id>` comment."
+            "Document intentional exceptions or false positives with a justification and a rule-specific nosemgrep comment."
         )
         return 1
     return 0
+
+
+def audit_suppressions(root: Path = Path("app")) -> int:
+    """Reject blanket/unjustified suppressions and keep accepted ones visible.
+
+    Read Python comments, not strings. An adjacent preceding comment explains
+    the exception; only explicit rule IDs may be suppressed. This audit runs
+    independently of Semgrep so a suppression cannot suppress its own audit.
+    """
+    errors = 0
+    for path in sorted(root.rglob("*.py")):
+        lines = path.read_text().splitlines()
+        with tokenize.open(path) as source:
+            comments = [
+                t
+                for t in tokenize.generate_tokens(source.readline)
+                if t.type == tokenize.COMMENT
+            ]
+        for comment in comments:
+            if "nosemgrep" not in comment.string:
+                continue
+            match = re.fullmatch(
+                r"#\s*nosemgrep:\s*([\w.-]+(?:\s*,\s*[\w.-]+)*)\s*", comment.string
+            )
+            previous = (
+                lines[comment.start[0] - 2].strip() if comment.start[0] > 1 else ""
+            )
+            justified = (
+                previous.startswith("#")
+                and len(previous.lstrip("# ")) >= 12
+                and "nosemgrep" not in previous
+            )
+            if not match or not justified:
+                print(
+                    f"{path}:{comment.start[0]}: suppression requires explicit rule IDs and a preceding justification comment"
+                )
+                errors += 1
+            else:
+                print(
+                    f"reviewed exception: {path}:{comment.start[0]} [{match[1]}] {previous.lstrip('# ')}"
+                )
+    return int(errors > 0)
+
+
+def contract_gate() -> int:
+    """Full-tree contract checks; changes to providers affect untouched routes."""
+    audit = audit_suppressions()
+    report = run_semgrep(["--config", str(CONTRACT_RULES), "app"])
+    try:
+        return max(audit, gate(report))
+    finally:
+        Path(report).unlink(missing_ok=True)
 
 
 def main(argv: list[str]) -> int:
     if argv[:1] == ["--report"]:
         return gate(argv[1])
     test_rules()
-    return gate(run_semgrep(argv))
+    contracts = contract_gate()
+    if argv == ["--contracts"]:
+        return contracts
+    report = run_semgrep(argv)
+    try:
+        return max(contracts, gate(report))
+    finally:
+        Path(report).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

@@ -70,7 +70,7 @@ Each module mirrors behavior owned by the corresponding module under `app/api/ro
 
 - Use `settings.API_V1_STR` for API paths; `/health` and `/api/v1/openapi.json` are intentional exceptions.
 - For authorization failures, assert that protected operations have no side effect, especially no outbound request.
-- Keep request stubs attached to `app.api.routes.webhooks.requests`, the object used by the route under test.
+- Keep request stubs attached to `app.api.policies.webhooks.requests`, the object used by the route under test.
 - Preserve indistinguishable 404 responses for missing and foreign records, and preserve non-enumerating login errors.
 
 ## Local guide aliases

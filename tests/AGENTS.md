@@ -17,6 +17,8 @@ Run the supported test entry point with `uv run bash scripts/tests-start.sh`. It
 
 ## Child directories
 
+- `authz/` — database-independent reusable-contract tests; see `authz/AGENTS.md`.
+- `scanners/` — scanner gate and suppression audit tests; see `scanners/AGENTS.md`.
 - `api/` — HTTP behavior and the route-discovery authorization invariant; see its local `AGENTS.md`.
 - `crud/` — direct persistence, authentication, hashing, and model-relationship tests; see its local `AGENTS.md`.
 - `scripts/` — isolated tests for the database-readiness entry points; see its local `AGENTS.md`.

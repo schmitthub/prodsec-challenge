@@ -2,7 +2,7 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-from app.api.routes import webhooks
+from app.api.policies import webhooks
 from app.core.config import settings
 
 URL = f"{settings.API_V1_STR}/webhooks/vendor-preview"

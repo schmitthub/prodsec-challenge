@@ -1,7 +1,5 @@
 import uuid
-from dataclasses import dataclass
-from enum import Enum, StrEnum
-from typing import ClassVar
+from enum import Enum
 
 from pydantic import BaseModel, EmailStr, HttpUrl
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
@@ -14,31 +12,6 @@ class PreviewRequest(BaseModel):
 class UserRole(str, Enum):
     member = "member"
     staff = "staff"
-
-
-class Scope(StrEnum):
-    """Permission vocabulary. Roles are mapped to scopes in ``app.api.deps.ROLE_SCOPES``."""
-
-    records_read = "records:read"
-    records_read_any = "records:read:any"  # cross-owner read of records and their notes
-    webhooks_preview = "webhooks:preview"
-    staff = "role:staff"
-
-
-@dataclass(frozen=True)
-class Access:
-    """What a caller needs in order to see or change values of the annotated type.
-
-    Declared on models as ``__access__``. Loaders in ``app.api.deps`` (``Owned``,
-    ``AnyOwner``, ``OwnedQuery``) derive the owner filter and the scope check from
-    it; ``PolicyRouter`` checks that a route's response type never needs more than
-    the route's signature grants.
-    """
-
-    read: Scope
-    write: Scope | None = None  # None: the type is never written through the API
-    owner_field: str | None = None  # column holding the owning user's id
-    read_any: Scope | None = None  # None: rows can never be widened past the owner
 
 
 # Shared properties
@@ -76,16 +49,7 @@ class RecordStatus(str, Enum):
     released = "released"
 
 
-RECORD_ACCESS = Access(
-    read=Scope.records_read,
-    owner_field="user_id",
-    read_any=Scope.records_read_any,
-)
-
-
 class RecordBase(SQLModel):
-    __access__: ClassVar[Access] = RECORD_ACCESS
-
     type: RecordType
     summary: str | None = Field(default=None, max_length=255)
     status: RecordStatus
@@ -115,16 +79,11 @@ class RecordPublic(RecordBase):
 
 
 class RecordsPublic(SQLModel):
-    __access__: ClassVar[Access] = RECORD_ACCESS
-
     data: list[RecordPublic]
     count: int
 
 
-# A note is visible exactly when its record is, so notes share the record's access.
 class RecordNoteBase(SQLModel):
-    __access__: ClassVar[Access] = RECORD_ACCESS
-
     note: str = Field(max_length=255)
 
 
@@ -147,8 +106,6 @@ class RecordNotePublic(RecordNoteBase):
 
 
 class RecordNotesPublic(SQLModel):
-    __access__: ClassVar[Access] = RECORD_ACCESS
-
     record_id: uuid.UUID
     data: list[RecordNotePublic]
     count: int
@@ -169,3 +126,13 @@ class Token(SQLModel):
 # Contents of JWT token
 class TokenPayload(SQLModel):
     sub: str | None = None
+
+
+class HealthStatus(BaseModel):
+    status: str = "ok"
+
+
+class VendorPreview(BaseModel):
+    status_code: int
+    content_type: str | None
+    preview: str

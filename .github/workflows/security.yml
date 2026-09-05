@@ -3,12 +3,14 @@ name: security
 # Reusable security checks, called by pr.yml (PRs) and main.yml (pushes to main).
 #
 # Gating policy (the part a busy product team has to live with):
-#   - Semgrep: on PRs only findings *introduced by the PR* count (--baseline-commit),
+#   - Semgrep general rules: on PRs only findings *introduced by the PR* count (--baseline-commit),
 #     and only top-severity findings fail the job: ERROR on Semgrep's classic
 #     ERROR/WARNING/INFO scale, or HIGH/CRITICAL on the CRITICAL/HIGH/MEDIUM/LOW
 #     scale rules may use since 1.72. Everything (all severities, full history
 #     on main) is uploaded to Code scanning as SARIF so WARNING/MEDIUM and
 #     INFO/LOW show up as annotations and alerts without blocking merges.
+#   - Semgrep authorization contracts: full app/ scan, rule fixtures, and
+#     justified-suppression audit block on both PRs and main, without a baseline.
 #   - Bandit: same shape as Semgrep — full scan → SARIF (category bandit); on
 #     PRs the gate diffs against a scan of the base commit (bandit -b) and only
 #     new HIGH-severity findings fail. main: upload only.
@@ -87,12 +89,14 @@ jobs:
             --config p/owasp-top-ten \
             --config p/github-actions \
             --config=.semgrep/github-actions.yaml \
-            --config=.semgrep/fastapi-access-control.yaml \
             --metrics=off --disable-version-check \
             --sarif-output semgrep.sarif \
             --json-output semgrep.json
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+      - name: Authorization contracts (full tree, rule fixtures, exception audit)
+        run: python3 .github/scripts/semgrep_gate.py --contracts
 
       - name: Upload Semgrep SARIF
         if: always() && hashFiles('semgrep.sarif') != ''
