@@ -167,6 +167,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Serena environment notes are documentation, not a Python environment.
+!/.serena/memories/env/
+
 # Spyder project settings
 .spyderproject
 .spyproject
