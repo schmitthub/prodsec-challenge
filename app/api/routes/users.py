@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated
 
 from app.api.policies.users import UserPolicy
 from app.authz import FromPolicy, PolicyRouter
@@ -8,5 +8,5 @@ router = PolicyRouter(tags=["users"], protected_policy=UserPolicy)
 
 
 @router.get("/me", response_model=UserPublic)
-def read_me(user: Annotated[User, FromPolicy(UserPolicy.me)]) -> Any:
+def read_me(user: Annotated[User, FromPolicy(UserPolicy.me)]) -> User:
     return user

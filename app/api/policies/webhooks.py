@@ -1,4 +1,4 @@
-import requests  # type: ignore[import-untyped]
+import requests
 from fastapi import HTTPException, status
 from pydantic import HttpUrl
 
@@ -42,7 +42,7 @@ def preview_vendor_webhook(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="callback_url host is not allowed",
-        )
+        ) from None
     except requests.RequestException as e:
         return VendorPreview(status_code=500, content_type=None, preview=str(e))
     return VendorPreview(

@@ -6,7 +6,8 @@
 - PR runs are concurrency-cancelled by PR number; main runs are keyed by SHA and not cancelled.
 
 ## Tests
-- `test.yml`: Postgres 17 service → Python 3.11 → `uv sync --frozen` → `scripts/prestart.sh` (wait/migrate/seed) → `scripts/tests-start.sh` (wait + coverage-backed pytest).
+- `test.yml`: Postgres 17 service → Python 3.11 → `uv sync --frozen` → `scripts/lint.sh` (mypy + Ruff) → `scripts/prestart.sh` (wait/migrate/seed) → `scripts/tests-start.sh` (wait + coverage-backed pytest).
+- The local `lint` pre-commit hook calls the same scripts/lint.sh with pass_filenames=false. Both check the full configured scope and use uv.lock dev-tool pins; there are no separate Ruff hook environments. Regression tests in tests/scanners/test_lint_gate.py prove narrowed principal overrides and representative weak patterns are rejected.
 
 ## Security
 - Semgrep: pinned container; general rules write JSON+SARIF. Their PR baseline diff gates ERROR/HIGH/CRITICAL through `.github/scripts/semgrep_gate.py --report`; their main findings upload only. A separate step in that same job runs `semgrep_gate.py --contracts` on both PR/main: rule fixtures, full app/ authorization scan, and justified rule-specific suppression audit. Contract failures always block; accepted exceptions print. The existing local Semgrep hook runs the same full-tree contract pass before its general scan.

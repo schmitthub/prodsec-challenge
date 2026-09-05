@@ -1,6 +1,6 @@
 import secrets
 import warnings
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import (
     AnyUrl,
@@ -10,13 +10,12 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing_extensions import Self
 
 
-def parse_cors(v: Any) -> list[str] | str:
+def parse_cors(v: object) -> list[object] | str:
     if isinstance(v, str) and not v.startswith("["):
         return [i.strip() for i in v.split(",") if i.strip()]
-    elif isinstance(v, list | str):
+    if isinstance(v, list | str):
         return v
     raise ValueError(v)
 
@@ -98,4 +97,5 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+# BaseSettings supplies required arguments from environment/.env at runtime.
+settings = Settings()  # type: ignore[call-arg]

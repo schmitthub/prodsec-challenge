@@ -9,7 +9,8 @@ uv run pytest tests/api/routes/test_records.py
 uv run fastapi dev app/main.py                  # :8000, docs at /docs
 docker compose up --build
 
-uv run bash scripts/lint.sh                     # strict mypy + Ruff check/format check on app
+bash scripts/lint.sh                            # shared locked mypy/Ruff checks; same entry in pre-commit and CI
+prek run lint --all-files                       # full-scope checking-only hook
 uv run bash scripts/format.sh                   # Ruff fix/format app + scripts
 prek run --all-files                            # fixers, scanners, compose-backed pytest
 prek run semgrep --all-files

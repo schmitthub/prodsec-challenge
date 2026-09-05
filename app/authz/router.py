@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, cast, get_args, get_origin, get_type_hints
 
 from fastapi import APIRouter, Depends, params
+from typing_extensions import override
 
 from .contracts import PUBLIC, Binding, FromPolicy, Policy, PolicyError, _PolicyOverride
 
@@ -24,7 +25,8 @@ class PolicyRouter(APIRouter):
     rewrite endpoint functions nor infer business permissions from response DTOs.
     """
 
-    def __init__(self, *, protected_policy: type[Policy], **kwargs: Any):
+    # FastAPI owns the heterogeneous router options forwarded by this adapter.
+    def __init__(self, *, protected_policy: type[Policy], **kwargs: Any) -> None:  # noqa: ANN401
         self._validate_policy(protected_policy)
         self.protected_policy = protected_policy
         if kwargs.get("dependencies"):
@@ -32,13 +34,18 @@ class PolicyRouter(APIRouter):
         super().__init__(**kwargs)
 
     @staticmethod
-    def _validate_policy(policy: type[Policy]) -> None:
+    def _validate_policy(policy: object) -> None:
         if not isinstance(policy, type) or not issubclass(policy, Policy):
             raise PolicyError("protected_policy must name a Policy subclass")
         policy.validate()
 
+    @override
     def add_api_route(
-        self, path: str, endpoint: Callable[..., Any], **kwargs: Any
+        # Preserve FastAPI's open registration signature at the adapter boundary.
+        self,
+        path: str,
+        endpoint: Callable[..., Any],
+        **kwargs: Any,
     ) -> None:
         dependencies = list(kwargs.get("dependencies") or ())
         overrides = [d for d in dependencies if isinstance(d, _PolicyOverride)]

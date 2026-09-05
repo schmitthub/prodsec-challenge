@@ -1,3 +1,5 @@
+from typing import Never
+
 import pytest
 import requests
 from fastapi.testclient import TestClient
@@ -27,11 +29,13 @@ class _FakeResponse:
 
 
 @pytest.fixture
-def outbound_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict]]:
+def outbound_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[tuple[str, dict[str, object]]]:
     """Stub the outbound fetch so tests never leave the process."""
-    calls: list[tuple[str, dict]] = []
+    calls: list[tuple[str, dict[str, object]]] = []
 
-    def fake_get(url: str, **kwargs):
+    def fake_get(url: str, **kwargs: object) -> _FakeResponse:
         calls.append((url, kwargs))
         return _FakeResponse(status_code=200, text="x" * 500, content_type="text/plain")
 
@@ -42,7 +46,7 @@ def outbound_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict]]:
 def test_member_is_forbidden(
     client: TestClient,
     member_token_headers: dict[str, str],
-    outbound_calls,
+    outbound_calls: list[tuple[str, dict[str, object]]],
     allowed_url: str,
 ) -> None:
     r = client.post(
@@ -53,7 +57,9 @@ def test_member_is_forbidden(
 
 
 def test_unauthenticated_is_rejected(
-    client: TestClient, outbound_calls, allowed_url: str
+    client: TestClient,
+    outbound_calls: list[tuple[str, dict[str, object]]],
+    allowed_url: str,
 ) -> None:
     r = client.post(URL, json={"callback_url": allowed_url})
     assert r.status_code == 401
@@ -63,7 +69,7 @@ def test_unauthenticated_is_rejected(
 def test_staff_preview_allowed_host(
     client: TestClient,
     staff_token_headers: dict[str, str],
-    outbound_calls,
+    outbound_calls: list[tuple[str, dict[str, object]]],
     allowed_url: str,
 ) -> None:
     r = client.post(
@@ -84,7 +90,7 @@ def test_staff_preview_allowed_host(
 def test_staff_preview_allowed_host_is_case_insensitive(
     client: TestClient,
     staff_token_headers: dict[str, str],
-    outbound_calls,
+    outbound_calls: list[tuple[str, dict[str, object]]],
     allowed_url: str,
 ) -> None:
     r = client.post(
@@ -108,7 +114,7 @@ def test_staff_preview_allowed_host_is_case_insensitive(
 def test_staff_preview_disallowed_host(
     client: TestClient,
     staff_token_headers: dict[str, str],
-    outbound_calls,
+    outbound_calls: list[tuple[str, dict[str, object]]],
     callback_url: str,
 ) -> None:
     r = client.post(
@@ -122,7 +128,7 @@ def test_staff_preview_disallowed_host(
 def test_staff_preview_lookalike_hosts_are_rejected(
     client: TestClient,
     staff_token_headers: dict[str, str],
-    outbound_calls,
+    outbound_calls: list[tuple[str, dict[str, object]]],
     allowed_url: str,
 ) -> None:
     host = _host(allowed_url)
@@ -137,7 +143,7 @@ def test_staff_preview_lookalike_hosts_are_rejected(
 def test_staff_preview_requires_https(
     client: TestClient,
     staff_token_headers: dict[str, str],
-    outbound_calls,
+    outbound_calls: list[tuple[str, dict[str, object]]],
     allowed_url: str,
 ) -> None:
     r = client.post(
@@ -155,7 +161,7 @@ def test_staff_preview_reports_upstream_failure(
     monkeypatch: pytest.MonkeyPatch,
     allowed_url: str,
 ) -> None:
-    def failing_get(*_args, **_kwargs):
+    def failing_get(*_args: object, **_kwargs: object) -> Never:
         raise requests.ConnectionError("boom")
 
     monkeypatch.setattr(webhooks.requests, "get", failing_get)
@@ -171,7 +177,10 @@ def test_staff_preview_reports_upstream_failure(
 
 @pytest.mark.parametrize("bad", ["not a url", "ftp://x", "", None])
 def test_invalid_callback_url_is_rejected(
-    client: TestClient, staff_token_headers: dict[str, str], outbound_calls, bad
+    client: TestClient,
+    staff_token_headers: dict[str, str],
+    outbound_calls: list[tuple[str, dict[str, object]]],
+    bad: str | None,
 ) -> None:
     r = client.post(URL, json={"callback_url": bad}, headers=staff_token_headers)
     assert r.status_code == 422

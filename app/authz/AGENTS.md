@@ -8,6 +8,8 @@ this package validates symbolic declarations and actual dependency wiring.
   and explicit use_policy overrides. Bindings carry resource types and a provider.
   Resources may be shared bases or domain markers, independent of result/schema
   types. The framework never infers authorization from class inheritance.
+  Principal is the shared type for every mutable principal ClassVar override;
+  subclasses must not narrow it. Mypy's mutable-override check enforces this.
 - router.py owns mandatory router policies, binding membership, method checks, and
   per-registration metadata; it does not rewrite endpoint functions.
 - discovery.py isolates FastAPI 0.141 lazy-include internals and validates mounted
@@ -19,7 +21,7 @@ Verification: uv run pytest --confcutdir=tests/authz tests/authz.
 ## Direct files and symbols
 
 - `__init__.py`: `__all__`.
-- `contracts.py`: `T`; `PolicyError`; `Public`; `PUBLIC`; `Binding (__post_init__, resources, provider)`; `Policy (bindings, validate, principal, methods)`; `FromPolicy (__init__, binding)`; `_PolicyOverride (__init__, policy)`; `use_policy()`.
+- `contracts.py`: `T`; `PolicyError`; `Public`; `PUBLIC`; `Principal`; `Binding (__post_init__, resources, provider)`; `Policy (bindings, validate, principal, methods)`; `FromPolicy (__init__, binding)`; `_PolicyOverride (__init__, policy)`; `use_policy()`.
 - `discovery.py`: `MountedContract (policy, public, overridden, resources, method, path, contract)`; `_walk()`; `_calls()`; `discover_contracts()`.
 - `router.py`: `RouteContract (policy, bindings, overridden)`; `PolicyRouter (__init__, _validate_policy, add_api_route)`.
 

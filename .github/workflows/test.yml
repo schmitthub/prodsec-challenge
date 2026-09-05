@@ -40,6 +40,8 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip uv
       - run: uv sync --frozen
+      - name: Mypy and Ruff
+        run: bash scripts/lint.sh
       # Wait for the DB, apply migrations, seed the local fixture accounts.
       - run: uv run bash scripts/prestart.sh
       - run: uv run bash scripts/tests-start.sh

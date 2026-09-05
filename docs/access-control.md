@@ -26,7 +26,7 @@ Application policy uses named binding attributes, which are Python symbols:
 
 ```python
 class RecordPolicy(AuthenticatedPolicy):
-    principal = staticmethod(record_reader)
+    principal: ClassVar[Principal] = staticmethod(record_reader)
     record = Binding((RecordBase,), owned_record)
     page = Binding((RecordBase,), owned_records)
     search = Binding((RecordBase,), search_owned_records)
@@ -92,7 +92,7 @@ The record-notes operation demonstrates a provider that protects two resources:
 
 ```python
 class OwnerOrStaffNotesPolicy(AuthenticatedPolicy):
-    principal = staticmethod(record_reader)
+    principal: ClassVar[Principal] = staticmethod(record_reader)
     notes = Binding((RecordBase, RecordNoteBase), owner_or_staff_notes)
 ```
 
@@ -156,6 +156,16 @@ The traversal of FastAPI 0.141's private lazy-include API is isolated in
 
 ## Scanner and review enforcement
 
+`Principal` is the shared type for every `principal: ClassVar[Principal]`
+declaration. A subclass may select a different dependency or PUBLIC, but must
+preserve that mutable attribute's type. The shared `scripts/lint.sh` entry point
+runs strict mypy with `mutable-override` and `explicit-override` enabled, plus
+Ruff's annotation, suppression, mutable-default, async, and correctness rules.
+Both pre-commit and the Test workflow call this script using tools from `uv.lock`.
+The lint regression tests demonstrate that the narrowed principal annotation is
+rejected and the shared declaration passes. Application queries and HTTP response
+schemas remain independent of the protected asset symbols.
+
 The existing Semgrep hook and CI job both run:
 
 1. Rule fixtures, including imported aliases, asset-family declarations, typed
@@ -210,7 +220,7 @@ reviewer other than the PR author; configure a security team when collaborating.
 ## Verification and extension
 
 ```bash
-uv run bash scripts/lint.sh
+bash scripts/lint.sh
 uv run pytest --confcutdir=tests/authz tests/authz tests/scanners
 # With the pinned Semgrep executable available:
 uv run python .github/scripts/semgrep_gate.py --contracts

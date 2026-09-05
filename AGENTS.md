@@ -10,7 +10,7 @@ The only permitted acknowledgement of `challenge/` outside that directory is thi
 
 ## Commands
 
-`pyproject.toml` + `uv.lock` are the dependency source of truth (resolved, transitive, hash-pinned). The dev group contains coverage, mypy, pytest, and ruff. `requirements.txt` and `Dockerfile.old` are legacy artifacts; current local, container, CI, SBOM, and OSV workflows use the uv project and lock. Security scanners are deliberately **not** uv dependencies — they run from pinned `rev`s in `.pre-commit-config.yaml` (prek-managed environments) so tool requirements cannot constrain runtime pins. Python 3.11 or newer is supported; CI and the image use 3.11.
+`pyproject.toml` + `uv.lock` are the dependency source of truth (resolved, transitive, hash-pinned). The dev group contains coverage, mypy, pytest, Ruff, and Requests type stubs. `requirements.txt` and `Dockerfile.old` are legacy artifacts; current local, container, CI, SBOM, and OSV workflows use the uv project and lock. Security scanners are deliberately **not** uv dependencies — they run from pinned `rev`s in `.pre-commit-config.yaml` (prek-managed environments) so tool requirements cannot constrain runtime pins. Python 3.11 or newer is supported; CI and the image use 3.11.
 
 ```bash
 uv sync --frozen                               # runtime + dev dependencies
@@ -22,9 +22,9 @@ uv run python .github/scripts/semgrep_gate.py --contracts # full-tree contract s
 uv run fastapi dev app/main.py                 # API on :8000, docs at /docs
 docker compose up --build                      # Postgres + prestart + API (+ Adminer/Traefik wiring)
 
-uv run bash scripts/lint.sh                     # mypy + ruff check/format check for app
+bash scripts/lint.sh                            # locked mypy + Ruff checks; shared by pre-commit and CI
 uv run bash scripts/format.sh                   # ruff fix/format for app and scripts
-prek run --all-files                           # ruff, gitleaks, bandit, semgrep (python + actions), osv-scanner, unit tests — scanners from their pinned rev in prek's cache; severity gates match CI (bandit HIGH; semgrep via the shared gate script)
+prek run --all-files                           # shared lint script, security scanners, and tests; lint tools use uv.lock
 prek run semgrep --all-files                   # one hook by id; the semgrep hook first runs `semgrep --test` on every .semgrep/<name>.yaml with a sibling fixture
 scripts/sarif-scan.sh                         # full-tree SARIF for every scanner into .sarif/ (gitignored; VS Code SARIF Viewer auto-loads it) — all severities, baselines/gates not applied
 ```
@@ -54,7 +54,7 @@ Every source-bearing directory under `app/`, `scripts/`, and `tests/` owns an `A
 ## CI / release layout (`.github/workflows/`)
 
 - `pr.yml` (pull_request → main) and `main.yml` (push main) are thin callers of two reusable workflows; permissions are declared per calling job — reusable workflows do not inherit workflow-level blocks.
-- `test.yml`: reusable pytest workflow with a Postgres 17 service. It installs from `uv.lock`, runs migrations/local seeding through `scripts/prestart.sh`, then executes the coverage-backed suite through `scripts/tests-start.sh`.
+- `test.yml`: reusable pytest workflow with a Postgres 17 service. It installs from `uv.lock`, runs the shared `scripts/lint.sh` check, runs migrations/local seeding through `scripts/prestart.sh`, then executes the coverage-backed suite through `scripts/tests-start.sh`.
 - `security.yml` jobs and their gates:
   - `semgrep` — general rules retain PR-baseline severity gating via `.github/scripts/semgrep_gate.py`; local/CI authorization contracts always scan all of `app/`, run rule fixtures, and audit suppression comments. `.semgrep/fastapi-access-control.yaml` checks router policy declarations, FromPolicy wiring, binding-policy mismatch, route dependency/import boundaries, direct provider calls, and policy definition placement. PUBLIC definitions, public-router applications, and endpoint overrides are ERROR findings requiring justified rule-specific suppressions; accepted exceptions remain visible in gate output. Existing hook owns both passes; no separate hook. Tests derive route coverage from the mounted app, with no checked-in endpoint inventory. GitHub merge enforcement also needs the Semgrep job required in the ruleset; see `docs/access-control.md`.
 
@@ -70,7 +70,7 @@ Every source-bearing directory under `app/`, `scripts/`, and `tests/` owns an `A
 - Tool versions pinned in two places that must match: `security.yml` (semgrep image tag, `BANDIT_VERSION`, `GITLEAKS_VERSION`) / `.github/actions/osv-image-scan/action.yml` (`OSV_SCANNER_VERSION`) and the corresponding pin in `.pre-commit-config.yaml` (hook `rev`, or `additional_dependencies` for the local semgrep hook). Dependabot bumps neither — `prek auto-update` for `rev`s, edit the semgrep pin by hand.
 - Actions are SHA-pinned with `# vX.Y.Z` comments; dependabot groups actions/pip/docker weekly.
 - GitHub rulesets (immutable tags, trunk-based) are configured server-side, not in repo.
-- `prek run --all-files` includes fix-capable ruff and whitespace hooks plus the compose-backed pytest hook. Review formatter edits before committing and ensure Docker/Compose is available when app or test Python changes trigger pytest.
+- `prek run --all-files` includes the checking-only `lint` hook, whitespace fixers, security scanners, and compose-backed pytest. The lint hook and Test workflow both call `scripts/lint.sh`; mypy/Ruff versions come from `uv.lock`. Mypy strict mode also enables mutable-override, explicit-override, coded-ignore, unreachable-code, and other correctness checks. Ruff requires typed signatures and rejects broad/stale suppressions. Ensure Docker/Compose is available when app or test Python changes trigger pytest.
 
 ## Agent environment
 

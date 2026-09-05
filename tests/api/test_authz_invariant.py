@@ -15,7 +15,6 @@ staff-only routes simply return 403 to a member and are skipped.
 from __future__ import annotations
 
 from itertools import product
-from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -39,7 +38,7 @@ def identifiers_owned_by(db: Session, user: User) -> set[str]:
     return {str(user.id), *(str(rid) for rid in records)}
 
 
-def string_values(payload: Any) -> set[str]:
+def string_values(payload: object) -> set[str]:
     """Every string value anywhere in a JSON payload."""
     if isinstance(payload, str):
         return {payload}

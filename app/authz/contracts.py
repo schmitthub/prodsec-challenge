@@ -7,7 +7,7 @@ and wiring; it does not try to prove their business authorization logic.
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
 
 from fastapi import params
 
@@ -23,6 +23,7 @@ class Public:
 
 
 PUBLIC = Public()
+Principal: TypeAlias = Callable[..., object] | Public | None
 
 
 @dataclass(frozen=True, eq=False)
@@ -53,7 +54,7 @@ class Policy:
     policy declaration. No role, key type, ORM, or ownership rule lives here.
     """
 
-    principal: ClassVar[Callable[..., Any] | Public | None] = None
+    principal: ClassVar[Principal] = None
     methods: ClassVar[frozenset[str]] = frozenset({"GET", "HEAD"})
 
     @classmethod
@@ -88,7 +89,7 @@ class FromPolicy(params.Depends):
 
     binding: Binding[Any]
 
-    def __init__(self, binding: Binding[Any]):
+    def __init__(self, binding: Binding[Any]) -> None:
         if not isinstance(binding, Binding):
             raise PolicyError("FromPolicy requires a Binding symbol")
         super().__init__(dependency=binding.provider)
@@ -98,7 +99,7 @@ class FromPolicy(params.Depends):
 class _PolicyOverride(params.Depends):
     policy: type[Policy]
 
-    def __init__(self, policy: type[Policy]):
+    def __init__(self, policy: type[Policy]) -> None:
         super().__init__()
         object.__setattr__(self, "policy", policy)
 

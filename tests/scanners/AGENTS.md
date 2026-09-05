@@ -8,10 +8,16 @@ The Compose test hook mounts .github read-only so the same gate is tested there.
 Semgrep's own positive/negative fixtures live alongside rules in .semgrep and run
 inside the existing scanner hook and the CI full-tree contract step.
 
+test_lint_gate.py invokes the locked mypy/Ruff tools with the real project config.
+It proves the exact mutable principal override is rejected while the shared type
+passes, and checks missing annotations, Any, blanket/stale suppressions, and mutable
+class defaults. It needs no database and does not install or download tools.
+
 ## Direct files and symbols
 
 - `__init__.py`: package marker/public re-exports.
 - `test_semgrep_gate.py`: `SCRIPT`; `spec`; `gate`; `test_unjustified_or_blanket_suppression_blocks()`; `test_justified_exception_remains_visible()`; `test_comment_looking_string_is_not_a_suppression()`; `test_contract_gate_scans_whole_app_and_preserves_failures()`.
+- `test_lint_gate.py`: `PROJECT_ROOT`; `CONFIG`; `test_mypy_checks_mutable_policy_overrides()`; `test_ruff_rejects_weak_patterns()`.
 
 ## Aliases
 

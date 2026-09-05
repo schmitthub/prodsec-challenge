@@ -9,7 +9,8 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -17,10 +18,10 @@ fileConfig(config.config_file_name)
 # target_metadata = mymodel.Base.metadata
 # target_metadata = None
 
-from app.models import SQLModel  # noqa
-from app.core.config import settings # noqa
+from app.core.config import settings  # noqa: E402 -- initialize logging first
+from app.models import Record  # noqa: E402 -- import all table models after logging
 
-target_metadata = SQLModel.metadata
+target_metadata = Record.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -28,11 +29,11 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 
-def get_url():
+def get_url() -> str:
     return str(settings.SQLALCHEMY_DATABASE_URI)
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
     This configures the context with just a URL
@@ -53,7 +54,7 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online():
+def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
@@ -61,6 +62,10 @@ def run_migrations_online():
 
     """
     configuration = config.get_section(config.config_ini_section)
+    if configuration is None:
+        raise RuntimeError(
+            f"Missing Alembic configuration section: {config.config_ini_section}"
+        )
     configuration["sqlalchemy.url"] = get_url()
     connectable = engine_from_config(
         configuration,

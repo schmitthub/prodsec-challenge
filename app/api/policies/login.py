@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from fastapi import Depends, Response, status
 from fastapi.responses import JSONResponse
@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud
 from app.api.deps import SessionDep
-from app.authz import PUBLIC, Binding, Policy
+from app.authz import PUBLIC, Binding, Policy, Principal
 from app.core import security
 from app.core.config import settings
 from app.models import Token, User
@@ -49,6 +49,6 @@ def login_access_token(
 
 class LoginPolicy(Policy):
     # OAuth2 login authenticates submitted credentials; there is no bearer yet.
-    principal = PUBLIC  # nosemgrep: authz-public-policy
+    principal: ClassVar[Principal] = PUBLIC  # nosemgrep: authz-public-policy
     methods = frozenset({"POST"})
     credentials = Binding((User,), login_access_token)

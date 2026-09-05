@@ -9,7 +9,7 @@ from tests.utils.utils import random_email, random_lower_string
 LOGIN = f"{settings.API_V1_STR}/login"
 
 
-def _form(email: str, password: str, **extra) -> dict[str, str]:
+def _form(email: str, password: str, **extra: str) -> dict[str, str]:
     return {"grant_type": "password", "username": email, "password": password, **extra}
 
 

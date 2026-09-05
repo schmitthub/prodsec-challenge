@@ -8,7 +8,7 @@ from sqlmodel import Session
 
 from app.api.policies.records import OwnerOrStaffNotesPolicy, RecordPolicy
 from app.api.policies.users import UserPolicy
-from app.authz import discover_contracts
+from app.authz import MountedContract, discover_contracts
 from app.core.config import settings
 from app.main import app
 from app.models import RecordBase, RecordNoteBase, UserRole
@@ -22,7 +22,7 @@ from tests.utils.user import random_user_token_headers
     ids=lambda c: f"{c.method} {c.path}",
 )
 def test_every_protected_operation_requires_identity(
-    client: TestClient, contract
+    client: TestClient, contract: MountedContract
 ) -> None:
     path = contract.path.replace("{record_id}", str(uuid.uuid4()))
     response = client.request(contract.method, path, params={"q": "a"})

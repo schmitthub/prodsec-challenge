@@ -8,7 +8,9 @@
 - Owner-scoped endpoints filter/query by `current_user.id`; foreign and missing records both return 404. Staff access is explicit per route.
 - SQLModel tables and public/input schemas live in `app/models.py`; CRUD writes call `session.add/commit/refresh`; migrations own schema creation.
 - Search uses SQLModel expressions and escaped case-insensitive containment; webhook fetches require exact case-insensitive allowlist membership, HTTPS, timeout, and redirects disabled.
-- Modern typing (`X | None`, `dict[str, Any]`); Ruff format/lint and strict mypy apply to `app/`.
+- User selected mypy + Ruff for project linting; do not substitute another type checker. `scripts/lint.sh` is the shared checking-only pre-commit/CI entry point, using `uv run --frozen` and uv.lock pins. Mypy checks app/ including the live Alembic runner; historical generated revisions are excluded. Ruff checks app/, scripts/, tests/, .github/scripts/, and .semgrep/.
+- Mypy strict is supplemented by mutable-override, explicit-override, coded ignores, no unimported Any, unreachable/redundant/possibly-undefined expressions, and unused awaitables. Strict alone did not catch the principal override. Every policy principal must retain ClassVar[Principal], where Principal is exported by app.authz.
+- Ruff requires complete signatures, rejects Any function annotations, broad/stale ignores/noqa, mutable defaults, blind catches, invalid mock assertions, unsafe async patterns, and other correctness mistakes. Two documented ANN401 exceptions preserve FastAPI's heterogeneous keyword forwarding; scanner fixtures have scoped exemptions. Requests stubs are a dev dependency so no import-untyped suppression is needed.
 
 ## Tests
 - Pytest fixtures in `tests/conftest.py`; tests use the real Postgres engine and clean tables after the session.

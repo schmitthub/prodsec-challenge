@@ -6,7 +6,7 @@ Alembic's application-specific migration environment. It binds Alembic to the co
 
 ## Role in the project
 
-Alembic loads `env.py` through the repository-level Alembic configuration. Importing `SQLModel` from `app.models` ensures the application's table metadata is registered for autogeneration; `settings.SQLALCHEMY_DATABASE_URI` supplies the runtime database URL. Alembic renders new revision modules from `script.py.mako` and stores them below `versions/`.
+Alembic loads `env.py` through the repository-level Alembic configuration. Importing `Record` loads all application models; its inherited metadata contains all registered SQLModel tables for autogeneration. `settings.SQLALCHEMY_DATABASE_URI` supplies the runtime database URL. Alembic renders new revision modules from `script.py.mako` and stores them below `versions/`.
 
 ## Child directories
 
@@ -22,11 +22,11 @@ Package marker; it defines no code symbols.
 
 Configures and dispatches Alembic migrations.
 
-- `config`: Active Alembic `Config` obtained from `context.config`; `fileConfig(config.config_file_name)` applies its logging configuration during module initialization.
+- `config`: Active Alembic `Config` obtained from `context.config`; `fileConfig(config.config_file_name)` applies logging configuration when a config filename is available.
 - `target_metadata`: Shared `SQLModel.metadata`, populated by importing the application models and passed to both migration modes for autogeneration and type comparison.
 - `get_url()`: Returns `settings.SQLALCHEMY_DATABASE_URI` as text.
 - `run_migrations_offline()`: Configures Alembic with only the URL, literal binds, metadata, and type comparison, then runs migrations in a transaction without creating an engine.
-- `run_migrations_online()`: Copies the active Alembic configuration section, injects the application database URL, creates an engine with `pool.NullPool`, connects, and runs migrations transactionally with metadata and type comparison.
+- `run_migrations_online()`: Requires the active Alembic configuration section, injects the application database URL, creates an engine with `pool.NullPool`, connects, and runs migrations transactionally with metadata and type comparison. A missing section raises an explicit configuration error.
 - Module dispatch: Calls the offline or online runner immediately according to `context.is_offline_mode()`.
 
 ### `script.py.mako`

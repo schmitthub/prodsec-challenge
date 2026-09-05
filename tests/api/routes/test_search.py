@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlmodel import Session
 
 from app.core.config import settings
@@ -7,7 +8,9 @@ from tests.utils.user import random_user_token_headers
 from tests.utils.utils import random_lower_string
 
 
-def _search(client: TestClient, headers: dict[str, str], q: str, **params):
+def _search(
+    client: TestClient, headers: dict[str, str], q: str, **params: int
+) -> Response:
     return client.get(
         f"{settings.API_V1_STR}/search", params={"q": q, **params}, headers=headers
     )

@@ -1,6 +1,14 @@
 """Reusable FastAPI authorization contracts; application policy lives elsewhere."""
 
-from .contracts import PUBLIC, Binding, FromPolicy, Policy, PolicyError, use_policy
+from .contracts import (
+    PUBLIC,
+    Binding,
+    FromPolicy,
+    Policy,
+    PolicyError,
+    Principal,
+    use_policy,
+)
 from .discovery import MountedContract, discover_contracts
 from .router import PolicyRouter
 
@@ -12,6 +20,7 @@ __all__ = [
     "Policy",
     "PolicyError",
     "PolicyRouter",
+    "Principal",
     "discover_contracts",
     "use_policy",
 ]

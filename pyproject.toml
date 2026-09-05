@@ -27,15 +27,30 @@ dev = [
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "ruff>=0.16.5",
+    "types-requests>=2.33.0.20260712",
 ]
 
 [tool.mypy]
 strict = true
-exclude = ["venv", ".venv", "alembic"]
+# Historical generated revisions are immutable; check the live Alembic runner.
+exclude = ["(^|/)(\\.venv|venv)/", "^app/alembic/versions/"]
+warn_unreachable = true
+disallow_any_unimported = true
+enable_error_code = [
+    "mutable-override",
+    "explicit-override",
+    "ignore-without-code",
+    "possibly-undefined",
+    "redundant-expr",
+    "truthy-bool",
+    "truthy-iterable",
+    "unused-awaitable",
+    "unimported-reveal",
+]
 
 [tool.ruff]
-target-version = "py310"
-exclude = ["alembic"]
+target-version = "py311"
+extend-exclude = ["app/alembic/versions/"]
 
 [tool.ruff.lint]
 select = [
@@ -48,12 +63,28 @@ select = [
     "UP", # pyupgrade
     "ARG001", # unused arguments in functions
     "T201", # print statements are not allowed
+    "ANN", # require complete signatures; reject Any in function annotations
+    "ASYNC", # blocking calls and invalid async patterns
+    "BLE", # blanket exception handlers
+    "DTZ", # timezone-aware datetime operations
+    "FAST", # typed FastAPI dependencies and path parameters
+    "ICN", # consistent import conventions
+    "ISC", # accidental implicit string concatenation
+    "LOG", # invalid logging calls
+    "PIE", # unnecessary and error-prone constructs
+    "PGH", # reject blanket ignores/noqa and invalid mock assertions
+    "PLE", # pylint correctness errors
+    "PLW", # suspicious operations and overwritten values
+    "RET", # explicit, consistent return paths
+    "RSE", # exception-raising mistakes
+    "RUF", # mutable defaults, invalid annotations, stale suppressions
+    "SIM", # unnecessarily complex control flow
+    "SLOT", # __slots__ on immutable built-in subclasses
+    "T10", # debugger statements
 ]
 ignore = [
-    "E501", # line too long, handled by black
-    "B008", # do not perform function calls in argument defaults
+    "E501", # line wrapping is handled by Ruff's formatter
     "W191", # indentation contains tabs
-    "B904", # Allow raising exceptions without from e, for HTTPException
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -61,6 +92,10 @@ ignore = [
 "scripts/*" = ["T201"]
 ".github/scripts/*" = ["T201"]
 ".agents/**/scripts/*" = ["T201"]
+# Deliberately incomplete/invalid signatures are scanner inputs, not runtime code.
+".semgrep/*.py" = ["ANN"]
+# StrEnum changes __str__; preserve existing persistence/public enum behavior.
+"app/models.py" = ["UP042"]
 
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.

@@ -2,14 +2,15 @@
 
 import uuid
 from collections.abc import Sequence
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, ClassVar, TypedDict
 
 from fastapi import HTTPException, Query
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, func, or_, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.api.policies.base import AuthenticatedPolicy
-from app.authz import Binding
+from app.authz import Binding, Principal
 from app.models import Record, RecordBase, RecordNote, RecordNoteBase, UserRole
 
 
@@ -49,9 +50,9 @@ def _page(
     current_user: CurrentUser,
     skip: int,
     limit: int,
-    *filters: Any,
+    *filters: ColumnElement[bool],
 ) -> RecordPage:
-    filters = (Record.user_id == current_user.id, *filters)
+    filters = (col(Record.user_id) == current_user.id, *filters)
     count = session.exec(select(func.count()).select_from(Record).where(*filters)).one()
     rows = session.exec(select(Record).where(*filters).offset(skip).limit(limit)).all()
     return RecordPage(data=rows, count=count)
@@ -98,12 +99,12 @@ def owner_or_staff_notes(
 
 
 class RecordPolicy(AuthenticatedPolicy):
-    principal = staticmethod(record_reader)
+    principal: ClassVar[Principal] = staticmethod(record_reader)
     record = Binding((RecordBase,), owned_record)
     page = Binding((RecordBase,), owned_records)
     search = Binding((RecordBase,), search_owned_records)
 
 
 class OwnerOrStaffNotesPolicy(AuthenticatedPolicy):
-    principal = staticmethod(record_reader)
+    principal: ClassVar[Principal] = staticmethod(record_reader)
     notes = Binding((RecordBase, RecordNoteBase), owner_or_staff_notes)

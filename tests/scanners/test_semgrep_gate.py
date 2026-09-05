@@ -17,12 +17,16 @@ spec.loader.exec_module(gate)
         "# nosemgrep: *",
     ],
 )
-def test_unjustified_or_blanket_suppression_blocks(tmp_path, comment) -> None:
+def test_unjustified_or_blanket_suppression_blocks(
+    tmp_path: Path, comment: str
+) -> None:
     (tmp_path / "policy.py").write_text(f"{comment}\nprincipal = PUBLIC\n")
     assert gate.audit_suppressions(tmp_path) == 1
 
 
-def test_justified_exception_remains_visible(tmp_path, capsys) -> None:
+def test_justified_exception_remains_visible(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     (tmp_path / "policy.py").write_text(
         "# OAuth2 credential exchange is deliberately anonymous.\n"
         "principal = PUBLIC  # nosemgrep: authz-public-policy\n"
@@ -31,19 +35,19 @@ def test_justified_exception_remains_visible(tmp_path, capsys) -> None:
     assert "reviewed exception:" in capsys.readouterr().out
 
 
-def test_comment_looking_string_is_not_a_suppression(tmp_path) -> None:
+def test_comment_looking_string_is_not_a_suppression(tmp_path: Path) -> None:
     (tmp_path / "example.py").write_text('example = "# nosemgrep"\n')
     assert gate.audit_suppressions(tmp_path) == 0
 
 
 def test_contract_gate_scans_whole_app_and_preserves_failures(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     report = tmp_path / "report.json"
     report.write_text('{"results": []}')
-    calls = []
+    calls: list[list[str]] = []
 
-    def scan(args):
+    def scan(args: list[str]) -> str:
         calls.append(args)
         return str(report)
 

@@ -78,7 +78,9 @@ def test_authentication_precedes_provider_and_validation() -> None:
     router = PolicyRouter(protected_policy=Documents)
 
     @router.get("/{key}")
-    def read(data: Annotated[dict[str, int], FromPolicy(Documents.document)]):
+    def read(
+        data: Annotated[dict[str, int], FromPolicy(Documents.document)],
+    ) -> dict[str, int]:
         return data
 
     app = FastAPI()
@@ -134,7 +136,7 @@ def test_unbound_endpoint_fails_registration() -> None:
     with pytest.raises(PolicyError, match="FromPolicy"):
 
         @router.get("/unbound")
-        def read():
+        def read() -> dict[str, int]:
             return {"id": 42}
 
 
@@ -143,7 +145,9 @@ def test_foreign_binding_fails_registration() -> None:
     with pytest.raises(PolicyError, match="does not belong"):
 
         @router.get("/{key}")
-        def read(data: Annotated[list[int], FromPolicy(Discussion.comments)]):
+        def read(
+            data: Annotated[list[int], FromPolicy(Discussion.comments)],
+        ) -> list[int]:
             return data
 
 
@@ -152,7 +156,9 @@ def test_raw_dependency_cannot_bypass_binding() -> None:
     with pytest.raises(PolicyError, match="FromPolicy"):
 
         @router.get("/{key}")
-        def read(data: Annotated[dict[str, int], Depends(load_document)]):
+        def read(
+            data: Annotated[dict[str, int], Depends(load_document)],
+        ) -> dict[str, int]:
             return data
 
 
@@ -163,7 +169,7 @@ def test_composite_policy_executes_each_binding() -> None:
     async def read(
         document: Annotated[dict[str, int], FromPolicy(Discussion.document)],
         comments: Annotated[list[int], FromPolicy(Discussion.comments)],
-    ):
+    ) -> dict[str, dict[str, int] | list[int]]:
         return {"document": document, "comments": comments}
 
     app = FastAPI()
@@ -183,7 +189,9 @@ def test_public_is_explicit_and_discoverable() -> None:
     router = PolicyRouter(protected_policy=PublicDocuments)
 
     @router.get("/{key}")
-    def read(data: Annotated[dict[str, int], FromPolicy(PublicDocuments.document)]):
+    def read(
+        data: Annotated[dict[str, int], FromPolicy(PublicDocuments.document)],
+    ) -> dict[str, int]:
         return data
 
     app = FastAPI()
@@ -196,7 +204,7 @@ def test_hidden_and_nested_uncontracted_routes_are_rejected() -> None:
     child = APIRouter()
 
     @child.get("/unprotected", include_in_schema=False)
-    def unprotected():
+    def unprotected() -> dict[str, object]:
         return {}
 
     parent = APIRouter()
@@ -212,12 +220,16 @@ def test_read_policy_cannot_silently_authorize_writes() -> None:
     with pytest.raises(PolicyError, match="method"):
 
         @router.post("/{key}")
-        def write(data: Annotated[dict[str, int], FromPolicy(Documents.document)]):
+        def write(
+            data: Annotated[dict[str, int], FromPolicy(Documents.document)],
+        ) -> dict[str, int]:
             return data
 
 
 def test_endpoint_function_is_not_rewritten() -> None:
-    def read(data: Annotated[dict[str, int], FromPolicy(Documents.document)]):
+    def read(
+        data: Annotated[dict[str, int], FromPolicy(Documents.document)],
+    ) -> dict[str, int]:
         return data
 
     for policy in (Documents, PublicDocuments):
@@ -236,7 +248,9 @@ def test_unused_bindings_do_not_execute() -> None:
     router = PolicyRouter(protected_policy=Extended)
 
     @router.get("/{key}")
-    def read(data: Annotated[dict[str, int], FromPolicy(Extended.document)]):
+    def read(
+        data: Annotated[dict[str, int], FromPolicy(Extended.document)],
+    ) -> dict[str, int]:
         return data
 
     app = FastAPI()
@@ -249,7 +263,9 @@ def test_discovery_detects_disconnected_authorization() -> None:
     router = PolicyRouter(protected_policy=Documents)
 
     @router.get("/{key}")
-    def read(data: Annotated[dict[str, int], FromPolicy(Documents.document)]):
+    def read(
+        data: Annotated[dict[str, int], FromPolicy(Documents.document)],
+    ) -> dict[str, int]:
         return data
 
     app = FastAPI()
@@ -269,7 +285,9 @@ def test_duplicate_overrides_and_raw_decorator_dependencies_are_rejected() -> No
         with pytest.raises(PolicyError, match="one use_policy"):
 
             @router.get("/{key}", dependencies=dependencies)
-            def read(data: Annotated[dict[str, int], FromPolicy(Documents.document)]):
+            def read(
+                data: Annotated[dict[str, int], FromPolicy(Documents.document)],
+            ) -> dict[str, int]:
                 return data
 
 

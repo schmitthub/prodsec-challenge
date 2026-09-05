@@ -8,14 +8,14 @@ uv sync --frozen
 docker compose up -d db
 uv run bash scripts/prestart.sh
 uv run pytest tests
-uv run bash scripts/lint.sh
+bash scripts/lint.sh
 ```
 
 ## Repository gates
 ```bash
 prek run --all-files
 ```
-This may apply Ruff/whitespace fixes and runs compose-backed pytest when app/test Python is in scope; inspect all resulting edits.
+The lint hook calls the shared mypy/Ruff script without autofixes; whitespace hooks may still edit files. Compose-backed pytest runs when app/test Python is in scope; inspect all resulting edits.
 
 ## Documentation-only changes
 - `git diff --check`.

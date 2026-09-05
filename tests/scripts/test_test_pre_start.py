@@ -2,32 +2,20 @@ from unittest.mock import MagicMock, patch
 
 from sqlmodel import select
 
-from app.tests_pre_start import init, logger
+from app.tests_pre_start import init
 
 
 def test_init_successful_connection() -> None:
     engine_mock = MagicMock()
-
     session_mock = MagicMock()
-    exec_mock = MagicMock(return_value=True)
-    session_mock.configure_mock(**{"exec.return_value": exec_mock})
+    session_mock.__enter__.return_value = session_mock
 
-    with (
-        patch("sqlmodel.Session", return_value=session_mock),
-        patch.object(logger, "info"),
-        patch.object(logger, "error"),
-        patch.object(logger, "warn"),
-    ):
-        try:
-            init(engine_mock)
-            connection_successful = True
-        except Exception:
-            connection_successful = False
+    with patch(
+        "app.tests_pre_start.Session", return_value=session_mock
+    ) as session_factory:
+        init(engine_mock)
 
-        assert connection_successful, (
-            "The database connection should be successful and not raise an exception."
-        )
-
-        assert session_mock.exec.called_once_with(select(1)), (
-            "The session should execute a select statement once."
-        )
+    session_factory.assert_called_once_with(engine_mock)
+    session_mock.exec.assert_called_once()
+    statement = session_mock.exec.call_args.args[0]
+    assert statement.compare(select(1))

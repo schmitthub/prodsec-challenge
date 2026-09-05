@@ -3,11 +3,11 @@
 # ruff: noqa: ARG001, E402, F401, F821, I001
 # fmt: off
 
-from typing import Annotated
+from typing import Annotated, ClassVar
 from typing import Annotated as Annotation
 from app.authz import FromPolicy as Bound
 from fastapi import APIRouter, Depends, Security
-from app.authz import Binding, FromPolicy, Policy, PolicyRouter, PUBLIC, use_policy
+from app.authz import Binding, FromPolicy, Policy, PolicyRouter, Principal, PUBLIC, use_policy
 from app.authz import PolicyRouter as RouterAlias
 from app.api.policies.records import (
     RecordPolicy,
@@ -90,6 +90,10 @@ class ForgedPolicy(Policy):
 class AnonymousPolicy:
     # ruleid: authz-public-policy
     principal = PUBLIC
+
+class TypedAnonymousPolicy:
+    # ruleid: authz-public-policy
+    principal: ClassVar[Principal] = PUBLIC
 
 # ruleid: authz-public-router
 login_router = PolicyRouter(protected_policy=AnonymousLogin)

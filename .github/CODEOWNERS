@@ -15,6 +15,10 @@
 /app/core/ @schmitthub
 /.semgrep/ @schmitthub
 /.pre-commit-config.yaml @schmitthub
+/pyproject.toml @schmitthub
+/uv.lock @schmitthub
+/scripts/lint.sh @schmitthub
 /tests/authz/ @schmitthub
 /tests/api/ @schmitthub
+/tests/scanners/ @schmitthub
 /docs/access-control.md @schmitthub

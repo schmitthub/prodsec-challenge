@@ -19,6 +19,7 @@ Postgres-backed FastAPI records service with SQLModel/Alembic persistence, OAuth
 - `app/models.py`: SQLModel tables/public schemas/enums/token models; `app/crud.py`: create/authenticate helpers.
 - `app/alembic/`: migration runtime and versions.
 - `tests/`: pytest against real Postgres; API, authorization invariant, CRUD, startup, and factory coverage.
+- `scripts/lint.sh`: shared pre-commit/CI mypy + Ruff checks, configured in pyproject.toml and locked in uv.lock; catches mutable policy override narrowing and weak annotations/suppressions.
 - `.github/workflows/` + `.pre-commit-config.yaml`: CI/security/release automation; see `mem:ci/core`.
 
 ## Agent docs

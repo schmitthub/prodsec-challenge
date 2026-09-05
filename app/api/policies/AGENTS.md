@@ -5,6 +5,8 @@ Use normal Python/FastAPI/SQLModel here; scanners enforce its boundary, not the
 correctness of arbitrary predicates. Protect called helpers under CODEOWNERS too.
 
 - base.py defines AuthenticatedPolicy using the real current-user dependency.
+  Every principal declaration uses ClassVar[Principal], preserving the mutable
+  attribute contract for both authenticated and PUBLIC policies.
 - records.py owns owner-filtered single/list/search queries and the explicit
   owner-or-staff composite notes provider. RecordPolicy and OwnerOrStaffNotesPolicy
   deliberately expose different bindings. Missing and foreign records both 404.

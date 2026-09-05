@@ -11,7 +11,7 @@ from typing import Any, cast
 from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute, _EffectiveRouteContext, _IncludedRouter
-from starlette.routing import Mount, Route
+from starlette.routing import Route
 
 from .contracts import PUBLIC, Policy, PolicyError
 from .router import RouteContract
@@ -77,7 +77,6 @@ def discover_contracts(app: FastAPI) -> list[MountedContract]:
         if not isinstance(original, APIRoute):
             if (
                 isinstance(original, Route)
-                and not isinstance(original, Mount)
                 and route.path in documentation
                 and original.endpoint.__module__ == "fastapi.applications"
             ):
@@ -86,7 +85,10 @@ def discover_contracts(app: FastAPI) -> list[MountedContract]:
         contract = getattr(original, "authz_contract", None)
         if not isinstance(contract, RouteContract):
             raise PolicyError(f"{route.path}: missing policy contract")
-        calls = _calls(route.dependant)
+        dependant = route.dependant
+        if dependant is None:
+            raise PolicyError(f"{route.path}: missing dependency graph")
+        calls = _calls(dependant)
         required = [b.provider for b in contract.bindings]
         if contract.policy.principal is not PUBLIC:
             required.append(cast(Callable[..., Any], contract.policy.principal))

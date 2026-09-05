@@ -25,7 +25,7 @@ POSIX-shell formatter that exits on the first failure, enables command tracing, 
 
 ### `lint.sh`
 
-Bash lint entry point that exits on the first failure, traces commands, runs mypy over `app/`, checks the application with Ruff, and verifies Ruff formatting without modifying files. It defines no named shell variables or functions.
+Bash lint entry point shared by pre-commit and GitHub Actions. It resolves the repository root from `BASH_SOURCE`, then uses `uv run --frozen` for strict mypy over `app/` and Ruff lint/format checks over `app/`, `scripts/`, `tests/`, `.github/scripts/`, and `.semgrep/`. Historical generated migration revisions are excluded; the live Alembic environment is checked. It never autofixes source and defines no named shell variables or functions.
 
 ### `prestart.sh`
 

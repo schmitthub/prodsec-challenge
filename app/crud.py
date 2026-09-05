@@ -28,8 +28,7 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
 
 def get_user_by_email(*, session: Session, email: str) -> User | None:
     statement = select(User).where(User.email == email)
-    session_user = session.exec(statement).first()
-    return session_user
+    return session.exec(statement).first()
 
 
 def authenticate(*, session: Session, email: str, password: str) -> User | None:
